@@ -1,6 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { db } from '@/lib/db';
+import { runAutomatedDataIngestion } from '@/lib/ingestion/ingestionOrchestrator';
 import { IPOCard } from '@/components/ipo/IPOCard';
 import {
   TrendingUp,
@@ -53,6 +54,29 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       },
       orderBy: { openDate: 'desc' },
     });
+
+    // Cold-Start Auto-Bootstrap:
+    // If DB has 0 IPOs (e.g. fresh ephemeral SQLite instance on Vercel lambda),
+    // automatically trigger live NSE automated ingestion cycle!
+    if (ipos.length === 0) {
+      console.log('🌱 Cold-start auto-bootstrap triggered: Ingesting live NSE data...');
+      await runAutomatedDataIngestion();
+
+      ipos = await db.iPO.findMany({
+        include: {
+          registrar: true,
+          gmpHistory: {
+            orderBy: { recordedAt: 'desc' },
+            take: 2,
+          },
+          subscription: {
+            orderBy: { recordedAt: 'desc' },
+            take: 1,
+          },
+        },
+        orderBy: { openDate: 'desc' },
+      });
+    }
 
     userGroups = await db.iPOApplicationGroup.findMany({
       where: { userId: 'default-user' },
