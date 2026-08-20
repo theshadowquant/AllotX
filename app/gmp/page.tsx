@@ -2,24 +2,29 @@ import React from 'react';
 import { db } from '@/lib/db';
 import Link from 'next/link';
 import { TrendingUp, TrendingDown, Minus, Info, ArrowUpRight } from 'lucide-react';
-import { IPOStatusBadge } from '@/components/ipo/IPOStatusBadge';
 
 export const revalidate = 0;
 
 export default async function GMPTrackerPage() {
-  const ipos = await db.iPO.findMany({
-    include: {
-      gmpHistory: {
-        orderBy: { recordedAt: 'desc' },
-        take: 2,
+  let ipos: any[] = [];
+  try {
+    ipos = await db.iPO.findMany({
+      include: {
+        gmpHistory: {
+          orderBy: { recordedAt: 'desc' },
+          take: 2,
+        },
       },
-    },
-    orderBy: { openDate: 'desc' },
-  });
+      orderBy: { openDate: 'desc' },
+    });
+  } catch (err) {
+    console.error('Error querying GMP page data:', err);
+    ipos = [];
+  }
 
   const gmpList = ipos.map((ipo) => {
-    const latest = ipo.gmpHistory[0] || null;
-    const previous = ipo.gmpHistory[1] || null;
+    const latest = ipo.gmpHistory?.[0] || null;
+    const previous = ipo.gmpHistory?.[1] || null;
 
     const gmpVal = latest?.gmp ?? 0;
     const prevVal = previous?.gmp ?? gmpVal;
@@ -41,7 +46,7 @@ export default async function GMPTrackerPage() {
       estimatedListing,
       trend: latest?.trend || 'STABLE',
       confidence: latest?.confidence || 'HIGH',
-      updatedAt: latest?.recordedAt.toISOString() || null,
+      updatedAt: latest?.recordedAt?.toISOString ? latest.recordedAt.toISOString() : null,
     };
   });
 

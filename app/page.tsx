@@ -6,24 +6,30 @@ import { TrendingUp, Flame, ShieldCheck, ArrowRight, Sparkles, Clock, CheckCircl
 export const revalidate = 0; // Dynamic SSR
 
 export default async function HomePage() {
-  const ipos = await db.iPO.findMany({
-    include: {
-      registrar: true,
-      gmpHistory: {
-        orderBy: { recordedAt: 'desc' },
-        take: 1,
+  let ipos: any[] = [];
+  try {
+    ipos = await db.iPO.findMany({
+      include: {
+        registrar: true,
+        gmpHistory: {
+          orderBy: { recordedAt: 'desc' },
+          take: 1,
+        },
+        subscription: {
+          orderBy: { recordedAt: 'desc' },
+          take: 1,
+        },
       },
-      subscription: {
-        orderBy: { recordedAt: 'desc' },
-        take: 1,
-      },
-    },
-    orderBy: { openDate: 'desc' },
-  });
+      orderBy: { openDate: 'desc' },
+    });
+  } catch (error) {
+    console.error('Database query error on HomePage:', error);
+    ipos = [];
+  }
 
   const formatted = ipos.map((ipo) => {
-    const latestGMP = ipo.gmpHistory[0] || null;
-    const latestSub = ipo.subscription[0] || null;
+    const latestGMP = ipo.gmpHistory?.[0] || null;
+    const latestSub = ipo.subscription?.[0] || null;
     return {
       id: ipo.id,
       name: ipo.name,
@@ -35,8 +41,8 @@ export default async function HomePage() {
       priceHigh: ipo.priceHigh,
       lotSize: ipo.lotSize,
       minInvestment: ipo.minInvestment,
-      openDate: ipo.openDate.toISOString(),
-      closeDate: ipo.closeDate.toISOString(),
+      openDate: ipo.openDate?.toISOString ? ipo.openDate.toISOString() : new Date().toISOString(),
+      closeDate: ipo.closeDate?.toISOString ? ipo.closeDate.toISOString() : new Date().toISOString(),
       gmp: latestGMP
         ? {
             value: latestGMP.gmp,
@@ -53,7 +59,6 @@ export default async function HomePage() {
   const openIPOs = formatted.filter((i) => i.status === 'OPEN');
   const allotmentOutIPOs = formatted.filter((i) => i.status === 'ALLOTMENT_AVAILABLE');
   const upcomingIPOs = formatted.filter((i) => i.status === 'UPCOMING');
-  const listedIPOs = formatted.filter((i) => i.status === 'LISTED');
 
   return (
     <div className="space-y-8">
