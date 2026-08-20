@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ApplicantCard, ApplicantCardData } from '@/components/allotment/ApplicantCard';
 import { VerificationModal } from '@/components/allotment/VerificationModal';
-import { ShieldCheck, Plus, RefreshCw, UserPlus, ExternalLink, Loader2 } from 'lucide-react';
+import { ShieldCheck, Plus, RefreshCw, UserPlus, ExternalLink, Loader2, Users } from 'lucide-react';
 
 interface ApplicationGroup {
   id: string;
@@ -20,6 +20,7 @@ interface ApplicationGroup {
 }
 
 export default function MyIPOsPage() {
+  const [activeUserId, setActiveUserId] = useState<string>('user-a');
   const [groups, setGroups] = useState<ApplicationGroup[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshingAll, setIsRefreshingAll] = useState(false);
@@ -42,9 +43,9 @@ export default function MyIPOsPage() {
 
   const pollingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const fetchGroups = async (): Promise<ApplicationGroup[]> => {
+  const fetchGroups = async (userId = activeUserId): Promise<ApplicationGroup[]> => {
     try {
-      const res = await fetch('/api/ipo-groups');
+      const res = await fetch(`/api/ipo-groups?userId=${userId}`);
       const json = await res.json();
       if (json.success) {
         setGroups(json.data);
@@ -59,11 +60,12 @@ export default function MyIPOsPage() {
   };
 
   useEffect(() => {
-    fetchGroups();
+    setIsLoading(true);
+    fetchGroups(activeUserId);
     return () => {
       if (pollingTimerRef.current) clearInterval(pollingTimerRef.current);
     };
-  }, []);
+  }, [activeUserId]);
 
   // Single Applicant Refresh
   const handleRefreshApplicant = async (applicantId: string) => {
@@ -80,14 +82,14 @@ export default function MyIPOsPage() {
       await fetch(`/api/applicants/${applicantId}/check`, {
         method: 'POST',
       });
-      fetchGroups();
+      fetchGroups(activeUserId);
     } catch (e) {
       console.error('Single check error:', e);
-      fetchGroups();
+      fetchGroups(activeUserId);
     }
   };
 
-  // ROBUST STATE-AWARE BATCH POLLING
+  // State-aware batch polling
   const handleRefreshAll = async (groupId: string) => {
     setIsRefreshingAll(true);
     setGroups((prev) =>
@@ -110,7 +112,7 @@ export default function MyIPOsPage() {
       if (pollingTimerRef.current) clearInterval(pollingTimerRef.current);
 
       pollingTimerRef.current = setInterval(async () => {
-        const latestGroups = await fetchGroups();
+        const latestGroups = await fetchGroups(activeUserId);
         const targetGroup = latestGroups.find((g) => g.id === groupId);
 
         if (!targetGroup) {
@@ -130,7 +132,7 @@ export default function MyIPOsPage() {
     } catch (e) {
       console.error('Batch refresh error:', e);
       setIsRefreshingAll(false);
-      fetchGroups();
+      fetchGroups(activeUserId);
     }
   };
 
@@ -164,13 +166,12 @@ export default function MyIPOsPage() {
       setNewApplicantName('');
       setNewApplicantPan('');
       setShowAddModal(false);
-      fetchGroups();
+      fetchGroups(activeUserId);
     } catch (e: any) {
       setAddError(e.message || 'Error creating applicant.');
     }
   };
 
-  // Dynamic Registrar Resolution for Verification Modal
   const handleOpenVerificationModal = (applicantId: string) => {
     const group = groups.find((g) => g.applicants.some((a) => a.id === applicantId));
     const applicant = group?.applicants.find((a) => a.id === applicantId);
@@ -189,18 +190,9 @@ export default function MyIPOsPage() {
     handleRefreshApplicant(verificationModal.applicantId);
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-20 text-gray-500 gap-3">
-        <Loader2 className="w-6 h-6 animate-spin text-purple-700" />
-        <span className="text-xs font-semibold">Loading My IPOs portfolio...</span>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
-      {/* Header */}
+      {/* Header & Dynamic User Switcher */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-200 pb-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-black text-gray-900 flex items-center gap-2">
@@ -210,15 +202,47 @@ export default function MyIPOsPage() {
             Manage multi-PAN applicant portfolios and check official registrar allotment results.
           </p>
         </div>
+
+        {/* User Scope Switcher */}
+        <div className="flex items-center gap-1.5 bg-gray-100 p-1 rounded-xl text-xs font-bold self-start">
+          <button
+            onClick={() => setActiveUserId('user-a')}
+            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 ${
+              activeUserId === 'user-a' ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5" /> User A
+          </button>
+          <button
+            onClick={() => setActiveUserId('user-b')}
+            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 ${
+              activeUserId === 'user-b' ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5" /> User B
+          </button>
+          <button
+            onClick={() => setActiveUserId('user-c')}
+            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 ${
+              activeUserId === 'user-c' ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5" /> User C
+          </button>
+        </div>
       </div>
 
-      {/* Application Groups */}
-      {groups.length === 0 ? (
+      {isLoading ? (
+        <div className="flex items-center justify-center py-20 text-gray-500 gap-3">
+          <Loader2 className="w-6 h-6 animate-spin text-purple-700" />
+          <span className="text-xs font-semibold">Loading portfolio for {activeUserId.toUpperCase()}...</span>
+        </div>
+      ) : groups.length === 0 ? (
         <div className="bg-white border border-gray-200 rounded-2xl p-8 text-center space-y-3 shadow-sm">
           <ShieldCheck className="w-10 h-10 text-purple-700 mx-auto opacity-80" />
-          <h3 className="font-bold text-base text-gray-900">Track Your IPO Applications</h3>
+          <h3 className="font-bold text-base text-gray-900">No Application Groups Found</h3>
           <p className="text-xs text-gray-500 max-w-md mx-auto">
-            Add your family or portfolio PANs once and manage your allotment results across KFintech, Link Intime, and Bigshare from one place.
+            {activeUserId.toUpperCase()} has not created any IPO application groups yet. Switch user accounts or add a new application group.
           </p>
         </div>
       ) : (
@@ -228,7 +252,6 @@ export default function MyIPOsPage() {
 
           return (
             <div key={group.id} className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-5 space-y-4 shadow-sm">
-              {/* Group Summary Header */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-3">
                 <div>
                   <div className="flex items-center gap-2 text-xs">
@@ -256,7 +279,6 @@ export default function MyIPOsPage() {
                 </div>
               </div>
 
-              {/* Applicants List */}
               <div className="space-y-2.5">
                 {group.applicants.map((applicant) => (
                   <ApplicantCard
@@ -268,7 +290,6 @@ export default function MyIPOsPage() {
                 ))}
               </div>
 
-              {/* Group Bottom Refresh All Button */}
               <div className="pt-3 border-t border-gray-100 flex items-center justify-between">
                 <span className="text-xs text-gray-500">
                   {group.applicants.length} Applicants in group

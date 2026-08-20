@@ -3,7 +3,10 @@ import { db } from '@/lib/db';
 
 export async function GET(req: NextRequest) {
   try {
-    const userId = 'default-user';
+    const { searchParams } = new URL(req.url);
+    const userIdHeader = req.headers.get('x-user-id');
+    const userIdParam = searchParams.get('userId');
+    const userId = userIdParam || userIdHeader || 'user-a';
 
     const groups = await db.iPOApplicationGroup.findMany({
       where: { userId },
@@ -77,7 +80,10 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { name, ipoId } = body;
+    const { name, ipoId, userId: bodyUserId } = body;
+
+    const userIdHeader = req.headers.get('x-user-id');
+    const userId = bodyUserId || userIdHeader || 'user-a';
 
     if (!name || !ipoId) {
       return NextResponse.json(
@@ -88,7 +94,7 @@ export async function POST(req: NextRequest) {
 
     const newGroup = await db.iPOApplicationGroup.create({
       data: {
-        userId: 'default-user',
+        userId,
         ipoId,
         name: name.trim(),
       },

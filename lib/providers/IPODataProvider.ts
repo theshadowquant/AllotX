@@ -1,13 +1,9 @@
 import { IPODataProvider, ProviderResponse, DiscoveredIPOItem } from './types';
 
-/**
- * Parses NSE date format "20-Aug-2026" or "2026-08-20" into a valid JavaScript Date
- */
-function parseNSEDate(dateStr: string, defaultDate: Date): Date {
-  if (!dateStr) return defaultDate;
+function parseNSEDate(dateStr: string): Date | null {
+  if (!dateStr) return null;
 
   try {
-    // Format: DD-MMM-YYYY (e.g. 20-Aug-2026)
     const match = dateStr.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/);
     if (match) {
       const day = parseInt(match[1], 10);
@@ -24,15 +20,12 @@ function parseNSEDate(dateStr: string, defaultDate: Date): Date {
     }
 
     const parsed = new Date(dateStr);
-    return isNaN(parsed.getTime()) ? defaultDate : parsed;
+    return isNaN(parsed.getTime()) ? null : parsed;
   } catch {
-    return defaultDate;
+    return null;
   }
 }
 
-/**
- * Parses NSE issue price format "Rs.285 to Rs.300" or "Rs.160"
- */
 function parseNSEPrice(priceStr: string): { priceLow: number; priceHigh: number } {
   if (!priceStr) return { priceLow: 100, priceHigh: 100 };
 
@@ -78,8 +71,12 @@ export class ExchangeIPODataProvider implements IPODataProvider {
         throw new Error('Unexpected NSE API response structure');
       }
 
-      const discoveries: DiscoveredIPOItem[] = json.map((item: any) => {
-        const symbol = (item.symbol || item.securitySymbol || 'IPO').toUpperCase().trim();
+      const discoveries: DiscoveredIPOItem[] = [];
+
+      for (const item of json) {
+        const symbol = (item.symbol || item.securitySymbol || '').toUpperCase().trim();
+        if (!symbol) continue;
+
         const name = item.companyName || item.issueName || symbol;
         const slug = `${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-ipo`;
 
@@ -87,17 +84,42 @@ export class ExchangeIPODataProvider implements IPODataProvider {
         const lotSize = parseInt(item.lotSize || item.marketLot || '50', 10) || 50;
         const minInvestment = priceHigh * lotSize;
 
-        const openDate = parseNSEDate(item.issueStartDate, now);
-        const closeDate = parseNSEDate(item.issueEndDate, new Date(now.getTime() + 3 * 86400000));
-        const allotmentDate = new Date(closeDate.getTime() + 86400000);
-        const listingDate = new Date(allotmentDate.getTime() + 2 * 86400000);
+        const openDate = parseNSEDate(item.issueStartDate) || now;
+        const closeDate = parseNSEDate(item.issueEndDate) || new Date(now.getTime() + 3 * 86400000);
+
+        // Strict: Do NOT invent allotmentDate or listingDate if missing
+        const allotmentDate = parseNSEDate(item.allotmentDate);
+        const listingDate = parseNSEDate(item.listingDate);
 
         let status: 'UPCOMING' | 'OPEN' | 'CLOSED' | 'ALLOTMENT_PENDING' | 'ALLOTMENT_AVAILABLE' | 'LISTED' = 'OPEN';
-        const rawStatus = (item.status || '').toUpperCase();
-        if (rawStatus.includes('UPCOMING')) status = 'UPCOMING';
-        else if (rawStatus.includes('CLOSED')) status = 'CLOSED';
+        const nowTs = now.getTime();
+        const openTs = openDate.getTime();
+        const closeTs = closeDate.getTime();
+        const listingTs = listingDate ? listingDate.getTime() : null;
 
-        return {
+        if (listingTs && nowTs >= listingTs) {
+          status = 'LISTED';
+        } else if (nowTs < openTs) {
+          status = 'UPCOMING';
+        } else if (nowTs >= openTs && nowTs <= closeTs) {
+          status = 'OPEN';
+        } else if (nowTs > closeTs) {
+          status = 'CLOSED';
+        }
+
+        // Strict: Assign registrar code only when supplied by source metadata
+        let registrarCode = 'UNKNOWN';
+        if (item.registrarCode) {
+          registrarCode = item.registrarCode.toUpperCase();
+        } else if (item.registrarName) {
+          const reg = item.registrarName.toUpperCase();
+          if (reg.includes('KFIN')) registrarCode = 'KFINTECH';
+          else if (reg.includes('LINK') || reg.includes('INTIME')) registrarCode = 'LINK_INTIME';
+          else if (reg.includes('BIGSHARE')) registrarCode = 'BIGSHARE';
+          else if (reg.includes('CAMEO')) registrarCode = 'CAMEO';
+        }
+
+        discoveries.push({
           name,
           symbol,
           slug,
@@ -107,14 +129,14 @@ export class ExchangeIPODataProvider implements IPODataProvider {
           priceHigh,
           lotSize,
           minInvestment,
-          issueSize: item.issueSize ? `₹${(parseFloat(item.issueSize) / 10000000).toFixed(0)} Cr` : '₹500 Cr',
+          issueSize: item.issueSize ? `₹${(parseFloat(item.issueSize) / 10000000).toFixed(0)} Cr` : undefined,
           openDate,
           closeDate,
-          allotmentDate,
-          listingDate,
-          registrarCode: (item.companyName || '').toUpperCase().includes('LINK') ? 'LINK_INTIME' : 'KFINTECH',
-        };
-      });
+          allotmentDate: allotmentDate || closeDate,
+          listingDate: listingDate || closeDate,
+          registrarCode,
+        });
+      }
 
       return {
         success: true,

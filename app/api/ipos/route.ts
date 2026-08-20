@@ -8,11 +8,8 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get('search');
     const marketType = searchParams.get('marketType');
 
+    const now = new Date();
     const whereClause: any = {};
-
-    if (status && status.toUpperCase() !== 'ALL') {
-      whereClause.status = status.toUpperCase();
-    }
 
     if (marketType && marketType.toUpperCase() !== 'ALL') {
       whereClause.marketType = marketType.toUpperCase();
@@ -38,12 +35,10 @@ export async function GET(req: NextRequest) {
           take: 1,
         },
       },
-      orderBy: [
-        { openDate: 'desc' },
-      ],
+      orderBy: [{ openDate: 'desc' }],
     });
 
-    const formattedIPOs = ipos.map((ipo) => {
+    let formattedIPOs = ipos.map((ipo) => {
       const latestGMP = ipo.gmpHistory[0] || null;
       const latestSub = ipo.subscription[0] || null;
 
@@ -64,10 +59,10 @@ export async function GET(req: NextRequest) {
         faceValue: ipo.faceValue,
         openDate: ipo.openDate.toISOString(),
         closeDate: ipo.closeDate.toISOString(),
-        allotmentDate: ipo.allotmentDate.toISOString(),
+        allotmentDate: ipo.allotmentDate ? ipo.allotmentDate.toISOString() : null,
         refundDate: ipo.refundDate ? ipo.refundDate.toISOString() : null,
         dematDate: ipo.dematDate ? ipo.dematDate.toISOString() : null,
-        listingDate: ipo.listingDate.toISOString(),
+        listingDate: ipo.listingDate ? ipo.listingDate.toISOString() : null,
         registrar: {
           id: ipo.registrar.id,
           code: ipo.registrar.code,
@@ -98,6 +93,39 @@ export async function GET(req: NextRequest) {
           : null,
       };
     });
+
+    // Enforce strict date-based status filtering
+    if (status && status.toUpperCase() !== 'ALL') {
+      const targetStatus = status.toUpperCase();
+      const nowTs = now.getTime();
+
+      if (targetStatus === 'OPEN' || targetStatus === 'CURRENT') {
+        formattedIPOs = formattedIPOs.filter((i) => {
+          const openTs = new Date(i.openDate).getTime();
+          const closeTs = new Date(i.closeDate).getTime();
+          const listingTs = i.listingDate ? new Date(i.listingDate).getTime() : null;
+          return openTs <= nowTs && nowTs <= closeTs && (!listingTs || nowTs < listingTs);
+        });
+      } else if (targetStatus === 'UPCOMING') {
+        formattedIPOs = formattedIPOs.filter((i) => {
+          const openTs = new Date(i.openDate).getTime();
+          return openTs > nowTs;
+        });
+      } else if (targetStatus === 'CLOSED') {
+        formattedIPOs = formattedIPOs.filter((i) => {
+          const closeTs = new Date(i.closeDate).getTime();
+          const listingTs = i.listingDate ? new Date(i.listingDate).getTime() : null;
+          return closeTs < nowTs && (!listingTs || nowTs < listingTs);
+        });
+      } else if (targetStatus === 'LISTED') {
+        formattedIPOs = formattedIPOs.filter((i) => {
+          const listingTs = i.listingDate ? new Date(i.listingDate).getTime() : null;
+          return listingTs ? listingTs <= nowTs : i.status === 'LISTED';
+        });
+      } else {
+        formattedIPOs = formattedIPOs.filter((i) => i.status === targetStatus);
+      }
+    }
 
     return NextResponse.json({
       success: true,

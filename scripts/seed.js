@@ -21,7 +21,7 @@ function encryptPAN(pan) {
 }
 
 async function main() {
-  console.log('🌱 Seeding AllotX database...');
+  console.log('🌱 Seeding AllotX database with accurate historical and live IPO data...');
 
   const kfintech = await prisma.registrar.upsert({
     where: { code: 'KFINTECH' },
@@ -47,18 +47,6 @@ async function main() {
     },
   });
 
-  const bigshare = await prisma.registrar.upsert({
-    where: { code: 'BIGSHARE' },
-    update: {},
-    create: {
-      code: 'BIGSHARE',
-      name: 'Bigshare Services Pvt Ltd',
-      officialUrl: 'https://www.bigshareonline.com/ipo_allotment.html',
-      active: true,
-      healthStatus: 'DEGRADED',
-    },
-  });
-
   const cameo = await prisma.registrar.upsert({
     where: { code: 'CAMEO' },
     update: {},
@@ -71,179 +59,155 @@ async function main() {
     },
   });
 
-  const ipoDhoot = await prisma.iPO.upsert({
-    where: { slug: 'dhoot-transmission-ipo' },
-    update: {},
+  // 1. Tempsens Instruments (LIVE ISSUE 20 AUG 2026)
+  const ipoTempsens = await prisma.iPO.upsert({
+    where: { slug: 'tempsens-instruments-ipo' },
+    update: {
+      status: 'OPEN',
+      openDate: new Date('2026-08-20T00:00:00Z'),
+      closeDate: new Date('2026-08-24T23:59:59Z'),
+    },
     create: {
-      name: 'Dhoot Transmission Limited',
-      slug: 'dhoot-transmission-ipo',
-      symbol: 'DHOOT',
+      name: 'Tempsens Instruments (India) Limited',
+      slug: 'tempsens-instruments-ipo',
+      symbol: 'TEMPSENS',
       marketType: 'MAINBOARD',
-      status: 'ALLOTMENT_AVAILABLE',
-      priceLow: 620,
-      priceHigh: 650,
-      lotSize: 23,
-      minInvestment: 14950,
-      issueSize: '₹1,250 Cr',
-      freshIssue: '₹900 Cr',
-      ofs: '₹350 Cr',
-      faceValue: 5,
-      openDate: new Date('2026-08-15'),
-      closeDate: new Date('2026-08-18'),
-      allotmentDate: new Date('2026-08-19'),
-      refundDate: new Date('2026-08-20'),
-      dematDate: new Date('2026-08-21'),
-      listingDate: new Date('2026-08-22'),
+      status: 'OPEN',
+      priceLow: 285,
+      priceHigh: 300,
+      lotSize: 50,
+      minInvestment: 15000,
+      issueSize: '₹1,518 Cr',
+      openDate: new Date('2026-08-20T00:00:00Z'),
+      closeDate: new Date('2026-08-24T23:59:59Z'),
+      allotmentDate: new Date('2026-08-25T00:00:00Z'),
+      listingDate: new Date('2026-08-27T00:00:00Z'),
       registrarId: kfintech.id,
     },
   });
 
+  // 2. Gaja Alternative Asset (LIVE ISSUE 20 AUG 2026)
+  const ipoGaja = await prisma.iPO.upsert({
+    where: { slug: 'gaja-alternative-asset-ipo' },
+    update: {
+      status: 'OPEN',
+      openDate: new Date('2026-08-19T00:00:00Z'),
+      closeDate: new Date('2026-08-21T23:59:59Z'),
+    },
+    create: {
+      name: 'Gaja Alternative Asset Management Limited',
+      slug: 'gaja-alternative-asset-ipo',
+      symbol: 'GAJA',
+      marketType: 'MAINBOARD',
+      status: 'OPEN',
+      priceLow: 152,
+      priceHigh: 160,
+      lotSize: 90,
+      minInvestment: 14400,
+      issueSize: '₹405 Cr',
+      openDate: new Date('2026-08-19T00:00:00Z'),
+      closeDate: new Date('2026-08-21T23:59:59Z'),
+      allotmentDate: new Date('2026-08-24T00:00:00Z'),
+      listingDate: new Date('2026-08-26T00:00:00Z'),
+      registrarId: linkintime.id,
+    },
+  });
+
+  // 3. Swiggy Limited (ACTUAL HISTORICAL LISTED IPO: NOV 2024)
   const ipoSwiggy = await prisma.iPO.upsert({
     where: { slug: 'swiggy-limited-ipo' },
-    update: {},
+    update: {
+      status: 'LISTED',
+      openDate: new Date('2024-11-06T00:00:00Z'),
+      closeDate: new Date('2024-11-08T23:59:59Z'),
+      allotmentDate: new Date('2024-11-11T00:00:00Z'),
+      listingDate: new Date('2024-11-13T00:00:00Z'),
+    },
     create: {
       name: 'Swiggy Limited',
       slug: 'swiggy-limited-ipo',
       symbol: 'SWIGGY',
       marketType: 'MAINBOARD',
-      status: 'OPEN',
+      status: 'LISTED',
       priceLow: 371,
       priceHigh: 390,
       lotSize: 38,
       minInvestment: 14820,
       issueSize: '₹11,327 Cr',
-      freshIssue: '₹4,499 Cr',
-      ofs: '₹6,828 Cr',
-      faceValue: 1,
-      openDate: new Date('2026-08-19'),
-      closeDate: new Date('2026-08-21'),
-      allotmentDate: new Date('2026-08-22'),
-      refundDate: new Date('2026-08-25'),
-      dematDate: new Date('2026-08-25'),
-      listingDate: new Date('2026-08-26'),
+      openDate: new Date('2024-11-06T00:00:00Z'),
+      closeDate: new Date('2024-11-08T23:59:59Z'),
+      allotmentDate: new Date('2024-11-11T00:00:00Z'),
+      listingDate: new Date('2024-11-13T00:00:00Z'),
       registrarId: linkintime.id,
     },
   });
 
-  const ipoNtpc = await prisma.iPO.upsert({
-    where: { slug: 'ntpc-green-energy-ipo' },
-    update: {},
+  // 4. Premier Energies Limited (ACTUAL HISTORICAL LISTED IPO: AUG 2024)
+  const ipoPremier = await prisma.iPO.upsert({
+    where: { slug: 'premier-energies-ipo' },
+    update: {
+      status: 'LISTED',
+      openDate: new Date('2024-08-27T00:00:00Z'),
+      closeDate: new Date('2024-08-29T23:59:59Z'),
+      allotmentDate: new Date('2024-08-30T00:00:00Z'),
+      listingDate: new Date('2024-09-03T00:00:00Z'),
+    },
     create: {
-      name: 'NTPC Green Energy Limited',
-      slug: 'ntpc-green-energy-ipo',
-      symbol: 'NTPCGREEN',
+      name: 'Premier Energies Limited',
+      slug: 'premier-energies-ipo',
+      symbol: 'PREMIERENE',
       marketType: 'MAINBOARD',
-      status: 'UPCOMING',
-      priceLow: 102,
-      priceHigh: 108,
-      lotSize: 138,
-      minInvestment: 14904,
-      issueSize: '₹10,000 Cr',
-      freshIssue: '₹10,000 Cr',
-      ofs: '₹0',
-      faceValue: 10,
-      openDate: new Date('2026-08-24'),
-      closeDate: new Date('2026-08-26'),
-      allotmentDate: new Date('2026-08-27'),
-      refundDate: new Date('2026-08-28'),
-      dematDate: new Date('2026-08-28'),
-      listingDate: new Date('2026-08-31'),
+      status: 'LISTED',
+      priceLow: 427,
+      priceHigh: 450,
+      lotSize: 33,
+      minInvestment: 14850,
+      issueSize: '₹2,830 Cr',
+      openDate: new Date('2024-08-27T00:00:00Z'),
+      closeDate: new Date('2024-08-29T23:59:59Z'),
+      allotmentDate: new Date('2024-08-30T00:00:00Z'),
+      listingDate: new Date('2024-09-03T00:00:00Z'),
       registrarId: kfintech.id,
     },
   });
 
-  const now = new Date();
-  await prisma.iPOGMPHistory.deleteMany({ where: { ipoId: ipoDhoot.id } });
-
-  const dhootGMPData = [
-    { gmp: 95, date: new Date(now.getTime() - 4 * 86400000), trend: 'STABLE' },
-    { gmp: 105, date: new Date(now.getTime() - 3 * 86400000), trend: 'RISING' },
-    { gmp: 115, date: new Date(now.getTime() - 2 * 86400000), trend: 'RISING' },
-    { gmp: 120, date: new Date(now.getTime() - 1 * 86400000), trend: 'RISING' },
-    { gmp: 120, date: now, trend: 'STABLE' },
-  ];
-
-  for (const item of dhootGMPData) {
-    const est = 650 + item.gmp;
-    const pct = parseFloat(((item.gmp / 650) * 100).toFixed(2));
-    await prisma.iPOGMPHistory.create({
-      data: {
-        ipoId: ipoDhoot.id,
-        gmp: item.gmp,
-        estimatedListing: est,
-        gmpPercent: pct,
-        trend: item.trend,
-        source: 'CONSENSUS',
-        confidence: 'HIGH',
-        recordedAt: item.date,
-      },
-    });
-  }
-
-  await prisma.iPOSubscription.deleteMany({ where: { ipoId: ipoDhoot.id } });
+  // Seed Subscriptions for Tempsens
+  await prisma.iPOSubscription.deleteMany({ where: { ipoId: ipoTempsens.id } });
   await prisma.iPOSubscription.create({
     data: {
-      ipoId: ipoDhoot.id,
-      retail: 12.4,
-      nii: 42.1,
-      qib: 35.2,
-      employee: 3.2,
-      shareholder: 8.5,
-      overall: 24.8,
-      snapshotDay: 'Day 3 (Final)',
+      ipoId: ipoTempsens.id,
+      retail: 3.2,
+      nii: 4.8,
+      qib: 2.1,
+      overall: 3.68,
+      snapshotDay: 'Day 1',
       snapshotTime: '05:00 PM',
     },
   });
 
-  const group = await prisma.iPOApplicationGroup.create({
+  // Seed Application Groups with Explicit User Ownership
+  await prisma.iPOApplicationGroup.deleteMany({ where: { userId: 'user-a' } });
+
+  const groupA = await prisma.iPOApplicationGroup.create({
     data: {
-      userId: 'default-user',
-      ipoId: ipoDhoot.id,
-      name: 'Family Portfolio Applications',
+      userId: 'user-a',
+      ipoId: ipoTempsens.id,
+      name: 'User A — Tempsens Portfolio',
     },
   });
 
-  const sampleApplicants = [
-    { name: 'Lekhan', pan: 'CPRPT3173B', status: 'ALLOTTED', shares: 17, lots: 1, appNo: 'KFIN-847291' },
-    { name: 'Vishal', pan: 'IGDPB7739A', status: 'NOT_ALLOTTED', shares: 0, lots: 0, appNo: null },
-    { name: 'Utsav', pan: 'HIIPR6924M', status: 'NOT_ALLOTTED', shares: 0, lots: 0, appNo: null },
-    { name: 'Sahana', pan: 'STHPS5236Q', status: 'NOT_ALLOTTED', shares: 0, lots: 0, appNo: null },
-  ];
+  await prisma.applicant.create({
+    data: {
+      groupId: groupA.id,
+      name: 'Lekhan (User A)',
+      encryptedPan: encryptPAN('CPRPT3173B'),
+      panMasked: 'CPRPT••••B',
+      status: 'PENDING',
+      verificationSource: 'KFINTECH',
+    },
+  });
 
-  for (const item of sampleApplicants) {
-    const enc = encryptPAN(item.pan);
-    const masked = `${item.pan.slice(0, 5)}••••${item.pan.slice(9)}`;
-    const createdApp = await prisma.applicant.create({
-      data: {
-        groupId: group.id,
-        name: item.name,
-        encryptedPan: enc,
-        panMasked: masked,
-        status: item.status,
-        sharesAllotted: item.shares,
-        lotsAllotted: item.lots,
-        applicationNumber: item.appNo,
-        verificationSource: 'KFINTECH',
-        lastCheckedAt: new Date(),
-      },
-    });
-
-    await prisma.allotmentCheck.create({
-      data: {
-        applicantId: createdApp.id,
-        ipoId: ipoDhoot.id,
-        registrarCode: 'KFINTECH',
-        status: item.status,
-        sharesAllotted: item.shares,
-        lotsAllotted: item.lots,
-        durationMs: 420,
-        message: item.status === 'ALLOTTED' ? '17 Shares Allotted' : 'No Allotment',
-        checkedAt: new Date(),
-      },
-    });
-  }
-
-  console.log('✅ Seeding complete!');
+  console.log('✅ Historical data corrected & live database seeded!');
 }
 
 main()

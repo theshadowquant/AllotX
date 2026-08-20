@@ -35,6 +35,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const params = await searchParams;
   const activeTab = params.tab || 'CURRENT';
   const activeMarket = params.market || 'ALL';
+  const now = new Date();
+  const nowTs = now.getTime();
 
   let ipos: any[] = [];
   let userGroups: any[] = [];
@@ -55,9 +57,6 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       orderBy: { openDate: 'desc' },
     });
 
-    // Cold-Start Auto-Bootstrap:
-    // If DB has 0 IPOs (e.g. fresh ephemeral SQLite instance on Vercel lambda),
-    // automatically trigger live NSE automated ingestion cycle!
     if (ipos.length === 0) {
       console.log('🌱 Cold-start auto-bootstrap triggered: Ingesting live NSE data...');
       await runAutomatedDataIngestion();
@@ -79,12 +78,11 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     }
 
     userGroups = await db.iPOApplicationGroup.findMany({
-      where: { userId: 'default-user' },
+      take: 2,
       include: {
         ipo: true,
         applicants: true,
       },
-      take: 2,
     });
   } catch (error) {
     console.error('Database query error on HomePage:', error);
@@ -114,8 +112,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       issueSize: ipo.issueSize,
       openDate: ipo.openDate?.toISOString ? ipo.openDate.toISOString() : new Date().toISOString(),
       closeDate: ipo.closeDate?.toISOString ? ipo.closeDate.toISOString() : new Date().toISOString(),
-      allotmentDate: ipo.allotmentDate?.toISOString ? ipo.allotmentDate.toISOString() : new Date().toISOString(),
-      listingDate: ipo.listingDate?.toISOString ? ipo.listingDate.toISOString() : new Date().toISOString(),
+      allotmentDate: ipo.allotmentDate?.toISOString ? ipo.allotmentDate.toISOString() : null,
+      listingDate: ipo.listingDate?.toISOString ? ipo.listingDate.toISOString() : null,
       gmp: latestGMP
         ? {
             value: gmpVal,
@@ -130,9 +128,28 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     };
   });
 
+  // Strict Date-based Classification Helpers
+  const isCurrentOpen = (item: typeof formattedIPOs[0]) => {
+    const openTs = new Date(item.openDate).getTime();
+    const closeTs = new Date(item.closeDate).getTime();
+    const listingTs = item.listingDate ? new Date(item.listingDate).getTime() : null;
+    return openTs <= nowTs && nowTs <= closeTs && (!listingTs || nowTs < listingTs);
+  };
+
+  const isUpcoming = (item: typeof formattedIPOs[0]) => {
+    const openTs = new Date(item.openDate).getTime();
+    return openTs > nowTs;
+  };
+
+  const isClosed = (item: typeof formattedIPOs[0]) => {
+    const closeTs = new Date(item.closeDate).getTime();
+    const listingTs = item.listingDate ? new Date(item.listingDate).getTime() : null;
+    return closeTs < nowTs && (!listingTs || nowTs < listingTs);
+  };
+
   // Calculate live database counts for "TODAY ON ALLOTX" Hero Card
-  const openCount = formattedIPOs.filter((i) => i.status === 'OPEN').length;
-  const upcomingCount = formattedIPOs.filter((i) => i.status === 'UPCOMING').length;
+  const openCount = formattedIPOs.filter(isCurrentOpen).length;
+  const upcomingCount = formattedIPOs.filter(isUpcoming).length;
   const allotmentPendingCount = formattedIPOs.filter(
     (i) => i.status === 'ALLOTMENT_PENDING' || i.status === 'ALLOTMENT_AVAILABLE'
   ).length;
@@ -142,23 +159,19 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   let filteredIPOs = formattedIPOs;
 
   if (activeTab === 'CURRENT') {
-    filteredIPOs = filteredIPOs.filter((i) => i.status === 'OPEN');
+    filteredIPOs = filteredIPOs.filter(isCurrentOpen);
   } else if (activeTab === 'UPCOMING') {
-    filteredIPOs = filteredIPOs.filter((i) => i.status === 'UPCOMING');
+    filteredIPOs = filteredIPOs.filter(isUpcoming);
   } else if (activeTab === 'CLOSED') {
-    filteredIPOs = filteredIPOs.filter(
-      (i) => i.status === 'CLOSED' || i.status === 'ALLOTMENT_AVAILABLE' || i.status === 'LISTED'
-    );
+    filteredIPOs = filteredIPOs.filter(isClosed);
   }
 
   if (activeMarket !== 'ALL') {
     filteredIPOs = filteredIPOs.filter((i) => i.marketType === activeMarket);
   }
 
-  const openIPOsList = formattedIPOs.filter((i) => i.status === 'OPEN');
-  const closedIPOsList = formattedIPOs.filter(
-    (i) => i.status === 'CLOSED' || i.status === 'ALLOTMENT_AVAILABLE' || i.status === 'LISTED'
-  );
+  const openIPOsList = formattedIPOs.filter(isCurrentOpen);
+  const closedIPOsList = formattedIPOs.filter(isClosed);
 
   return (
     <div className="space-y-10 pb-10">
@@ -516,7 +529,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
               <div key={ipo.id} className="p-3 bg-purple-50/50 rounded-xl border border-purple-100 flex justify-between items-center">
                 <div>
                   <h4 className="font-bold text-gray-900">{ipo.name}</h4>
-                  <p className="text-[11px] text-gray-500">Allotment: <strong className="text-purple-700">{formatShortDate(ipo.allotmentDate)}</strong></p>
+                  <p className="text-[11px] text-gray-500">Allotment: <strong className="text-purple-700">{ipo.allotmentDate ? formatShortDate(ipo.allotmentDate) : 'TBD'}</strong></p>
                 </div>
 
                 <Link
@@ -569,7 +582,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                     <td className="py-3.5 px-4 font-semibold">₹{ipo.priceHigh}</td>
                     <td className="py-3.5 px-4 font-extrabold text-emerald-600">+₹{ipo.gmp?.value || 0}</td>
                     <td className="py-3.5 px-4 font-semibold text-gray-700">{formatINR(ipo.minInvestment)}</td>
-                    <td className="py-3.5 px-4 font-semibold text-purple-700">{formatShortDate(ipo.allotmentDate)}</td>
+                    <td className="py-3.5 px-4 font-semibold text-purple-700">{ipo.allotmentDate ? formatShortDate(ipo.allotmentDate) : 'TBD'}</td>
                     <td className="py-3.5 px-4 font-extrabold text-emerald-600">{estProfit > 0 ? `+${formatINR(estProfit)}` : 'N/A'}</td>
                   </tr>
                 );
@@ -595,118 +608,6 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         >
           Start Checking Allotments →
         </Link>
-      </section>
-
-      {/* 9. WHY CHOOSE ALLOTX */}
-      <section className="space-y-4">
-        <div className="text-center space-y-1">
-          <h2 className="text-xl sm:text-2xl font-black text-gray-900">Why choose AllotX?</h2>
-          <p className="text-xs text-gray-500">Built specifically for ordinary retail IPO investors in India.</p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white border border-gray-200 p-5 rounded-2xl space-y-2">
-            <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-            <h3 className="font-bold text-sm text-gray-900">Real-Time Registrar Querying</h3>
-            <p className="text-xs text-gray-500 leading-relaxed">
-              Check official allotment status through supported KFintech, Link Intime, Bigshare, and Cameo enquiry endpoints.
-            </p>
-          </div>
-
-          <div className="bg-white border border-gray-200 p-5 rounded-2xl space-y-2">
-            <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
-              <UserCheck className="w-5 h-5" />
-            </div>
-            <h3 className="font-bold text-sm text-gray-900">Bulk PAN Portfolio Tracking</h3>
-            <p className="text-xs text-gray-500 leading-relaxed">
-              Store and check family applications in batches without manually re-entering PAN numbers every single time.
-            </p>
-          </div>
-
-          <div className="bg-white border border-gray-200 p-5 rounded-2xl space-y-2">
-            <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
-              <TrendingUp className="w-5 h-5" />
-            </div>
-            <h3 className="font-bold text-sm text-gray-900">GMP & Subscription Unified</h3>
-            <p className="text-xs text-gray-500 leading-relaxed">
-              Review live grey market premiums, category-wise subscription multipliers, and estimated listing profits together.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* 10. MOBILE PWA CALLOUT */}
-      <section className="bg-gray-50 border border-gray-200 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold shrink-0">
-            <Smartphone className="w-6 h-6" />
-          </div>
-          <div>
-            <h4 className="font-bold text-sm text-gray-900">AllotX works beautifully on mobile</h4>
-            <p className="text-xs text-gray-500">Full PWA support. Add to Home Screen on iOS and Android for instant one-thumb access.</p>
-          </div>
-        </div>
-
-        <Link
-          href="/my-ipos"
-          className="px-4 py-2 bg-purple-700 text-white font-bold text-xs rounded-lg shrink-0 hover:bg-purple-800 transition-colors"
-        >
-          Open AllotX App
-        </Link>
-      </section>
-
-      {/* 11. FAQ ACCORDION SECTION */}
-      <section className="bg-white border border-gray-200 rounded-2xl p-6 space-y-4">
-        <div className="space-y-1">
-          <h2 className="text-xl font-black text-gray-900 flex items-center gap-2">
-            <HelpCircle className="w-5 h-5 text-purple-700" /> Frequently Asked Questions
-          </h2>
-          <p className="text-xs text-gray-500">Retail investor guide to IPO allotments, GMP, and subscription data.</p>
-        </div>
-
-        <div className="divide-y divide-gray-100 text-xs">
-          <details className="py-3 group cursor-pointer">
-            <summary className="font-bold text-gray-900 flex justify-between items-center group-hover:text-purple-700">
-              How do I check my IPO allotment status?
-              <ChevronRight className="w-4 h-4 text-gray-400 group-open:rotate-90 transition-transform" />
-            </summary>
-            <p className="text-gray-600 mt-2 leading-relaxed">
-              Navigate to "Check IPO Allotments", add your Applicant Name and 10-character Income Tax PAN number. AllotX queries the respective official registrar enquiry endpoint (KFintech, Link Intime, etc.) and displays whether shares were allotted to your application.
-            </p>
-          </details>
-
-          <details className="py-3 group cursor-pointer">
-            <summary className="font-bold text-gray-900 flex justify-between items-center group-hover:text-purple-700">
-              What is IPO GMP (Grey Market Premium)?
-              <ChevronRight className="w-4 h-4 text-gray-400 group-open:rotate-90 transition-transform" />
-            </summary>
-            <p className="text-gray-600 mt-2 leading-relaxed">
-              Grey Market Premium (GMP) is the unofficial price premium at which IPO shares trade in the OTC market before official listing on the BSE/NSE. It provides an estimated indicator of listing gain sentiment.
-            </p>
-          </details>
-
-          <details className="py-3 group cursor-pointer">
-            <summary className="font-bold text-gray-900 flex justify-between items-center group-hover:text-purple-700">
-              Is IPO GMP guaranteed?
-              <ChevronRight className="w-4 h-4 text-gray-400 group-open:rotate-90 transition-transform" />
-            </summary>
-            <p className="text-gray-600 mt-2 leading-relaxed">
-              No. GMP is strictly unofficial market sentiment and does not guarantee actual stock exchange listing price or future performance.
-            </p>
-          </details>
-
-          <details className="py-3 group cursor-pointer">
-            <summary className="font-bold text-gray-900 flex justify-between items-center group-hover:text-purple-700">
-              Can I track multiple family PAN applications together?
-              <ChevronRight className="w-4 h-4 text-gray-400 group-open:rotate-90 transition-transform" />
-            </summary>
-            <p className="text-gray-600 mt-2 leading-relaxed">
-              Yes! AllotX allows you to create application groups for family members and run batch checks ("Refresh All") across all saved PANs in a single click.
-            </p>
-          </details>
-        </div>
       </section>
     </div>
   );
