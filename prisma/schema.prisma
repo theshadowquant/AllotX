@@ -1,0 +1,205 @@
+// AllotX Prisma Schema
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum MarketType {
+  MAINBOARD
+  SME
+}
+
+enum IPOStatus {
+  UPCOMING
+  OPEN
+  CLOSED
+  ALLOTMENT_PENDING
+  ALLOTMENT_AVAILABLE
+  LISTED
+}
+
+enum GMPTrend {
+  RISING
+  FALLING
+  STABLE
+  VOLATILE
+  NO_DATA
+}
+
+enum ConfidenceLevel {
+  HIGH
+  MEDIUM
+  LOW
+  NO_CONSENSUS
+}
+
+enum AllotmentStatus {
+  PENDING
+  CHECKING
+  ALLOTTED
+  NOT_ALLOTTED
+  ERROR
+  CAPTCHA_REQUIRED
+  TEMPORARILY_UNAVAILABLE
+}
+
+enum RegistrarHealth {
+  OPERATIONAL
+  DEGRADED
+  UNAVAILABLE
+}
+
+model Registrar {
+  id           String          @id @default(uuid())
+  code         String          @unique // e.g. MOCK, KFINTECH, LINK_INTIME, BIGSHARE, CAMEO
+  name         String
+  officialUrl  String
+  active       Boolean         @default(true)
+  healthStatus RegistrarHealth @default(OPERATIONAL)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  ipos IPO[]
+}
+
+model IPO {
+  id            String     @id @default(uuid())
+  name          String
+  slug          String     @unique
+  symbol        String
+  marketType    MarketType @default(MAINBOARD)
+  status        IPOStatus  @default(UPCOMING)
+  priceLow      Float
+  priceHigh     Float
+  lotSize       Int
+  minInvestment Float
+  issueSize     String // e.g. "₹1,250 Cr"
+  freshIssue    String?
+  ofs           String?
+  faceValue     Float      @default(10)
+  openDate      DateTime
+  closeDate     DateTime
+  allotmentDate DateTime
+  refundDate    DateTime?
+  dematDate     DateTime?
+  listingDate   DateTime
+  registrarId   String
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  registrar    Registrar              @relation(fields: [registrarId], references: [id])
+  gmpHistory   IPOGMPHistory[]
+  subscription IPOSubscription[]
+  groups       IPOApplicationGroup[]
+  watchlists   Watchlist[]
+  allotmentChecks AllotmentCheck[]
+
+  @@index([status])
+  @@index([slug])
+}
+
+model IPOGMPHistory {
+  id               String          @id @default(uuid())
+  ipoId            String
+  gmp              Float
+  estimatedListing Float
+  gmpPercent       Float
+  trend            GMPTrend        @default(STABLE)
+  source           String          @default("CONSENSUS")
+  confidence       ConfidenceLevel @default(HIGH)
+  recordedAt       DateTime        @default(now())
+
+  ipo IPO @relation(fields: [ipoId], references: [id], onDelete: Cascade)
+
+  @@index([ipoId, recordedAt])
+}
+
+model IPOSubscription {
+  id           String   @id @default(uuid())
+  ipoId        String
+  retail       Float    @default(0.0)
+  nii          Float    @default(0.0)
+  qib          Float    @default(0.0)
+  employee     Float?
+  shareholder  Float?
+  overall      Float    @default(0.0)
+  snapshotDay  String?  // e.g. "Day 1", "Day 3 (Final)"
+  snapshotTime String?  // e.g. "05:00 PM"
+  recordedAt   DateTime @default(now())
+
+  ipo IPO @relation(fields: [ipoId], references: [id], onDelete: Cascade)
+
+  @@index([ipoId, recordedAt])
+}
+
+model IPOApplicationGroup {
+  id        String   @id @default(uuid())
+  userId    String   @default("default-user")
+  ipoId     String
+  name      String   // e.g. "Family Applications"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ipo        IPO         @relation(fields: [ipoId], references: [id], onDelete: Cascade)
+  applicants Applicant[]
+
+  @@index([userId, ipoId])
+}
+
+model Applicant {
+  id                 String          @id @default(uuid())
+  groupId            String
+  name               String          // e.g. "Lekhan", "Vishal"
+  encryptedPan       String
+  panMasked          String          // e.g. "CPRPT••••B"
+  status             AllotmentStatus @default(PENDING)
+  sharesAllotted     Int             @default(0)
+  lotsAllotted       Int             @default(0)
+  applicationNumber  String?
+  verificationSource String?         // e.g. "KFINTECH", "LINK_INTIME", "MOCK"
+  lastCheckedAt      DateTime?
+  lastErrorMessage   String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  group IPOApplicationGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  checks AllotmentCheck[]
+
+  @@index([groupId])
+}
+
+model AllotmentCheck {
+  id             String          @id @default(uuid())
+  applicantId    String
+  ipoId          String
+  registrarCode  String          // e.g. KFINTECH, LINK_INTIME
+  status         AllotmentStatus
+  sharesAllotted Int             @default(0)
+  lotsAllotted   Int             @default(0)
+  durationMs     Int             @default(0)
+  errorCode      String?
+  message        String?
+  checkedAt      DateTime        @default(now())
+
+  applicant Applicant @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  ipo       IPO       @relation(fields: [ipoId], references: [id], onDelete: Cascade)
+
+  @@index([applicantId])
+  @@index([ipoId])
+  @@index([checkedAt])
+}
+
+model Watchlist {
+  id        String   @id @default(uuid())
+  userId    String   @default("default-user")
+  ipoId     String
+  createdAt DateTime @default(now())
+
+  ipo IPO @relation(fields: [ipoId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, ipoId])
+}
