@@ -1,5 +1,5 @@
 import React from 'react';
-import { notFound } from 'not-found' in 'next/navigation' ? require('next/navigation') : { notFound: () => {} };
+import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
 import { IPOStatusBadge } from '@/components/ipo/IPOStatusBadge';
 import { GMPChart } from '@/components/ipo/GMPChart';
