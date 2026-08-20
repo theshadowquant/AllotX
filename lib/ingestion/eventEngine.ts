@@ -2,7 +2,7 @@ import { db } from '../db';
 
 /**
  * Derives event milestones and updates IPO status automatically
- * based on current date boundaries.
+ * based on date boundaries AND actual registrar verification confirmation.
  */
 export async function deriveIPOEventsAndStatus(): Promise<{ updatedCount: number; eventsCreated: number }> {
   const now = new Date();
@@ -11,7 +11,15 @@ export async function deriveIPOEventsAndStatus(): Promise<{ updatedCount: number
 
   try {
     const ipos = await db.iPO.findMany({
-      include: { events: true },
+      include: {
+        events: true,
+        allotmentChecks: {
+          where: {
+            status: { in: ['ALLOTTED', 'NOT_ALLOTTED'] },
+          },
+          take: 1,
+        },
+      },
     });
 
     for (const ipo of ipos) {
@@ -22,7 +30,7 @@ export async function deriveIPOEventsAndStatus(): Promise<{ updatedCount: number
       const listingTs = new Date(ipo.listingDate).getTime();
       const nowTs = now.getTime();
 
-      // Determine date-derived status
+      // Determine date-derived status with strict allotment verification check
       if (nowTs < openTs) {
         targetStatus = 'UPCOMING';
       } else if (nowTs >= openTs && nowTs <= closeTs) {
@@ -30,7 +38,11 @@ export async function deriveIPOEventsAndStatus(): Promise<{ updatedCount: number
       } else if (nowTs > closeTs && nowTs < allotmentTs) {
         targetStatus = 'CLOSED';
       } else if (nowTs >= allotmentTs && nowTs < listingTs) {
-        targetStatus = ipo.status === 'ALLOTMENT_AVAILABLE' ? 'ALLOTMENT_AVAILABLE' : 'ALLOTMENT_PENDING';
+        // Data Integrity Fix:
+        // Do NOT infer ALLOTMENT_AVAILABLE purely from the date calendar.
+        // Set ALLOTMENT_AVAILABLE only if actual registrar allotment checks exist in DB.
+        const hasVerifiedAllotments = ipo.allotmentChecks.length > 0;
+        targetStatus = hasVerifiedAllotments ? 'ALLOTMENT_AVAILABLE' : 'ALLOTMENT_PENDING';
       } else if (nowTs >= listingTs) {
         targetStatus = 'LISTED';
       }
@@ -53,7 +65,7 @@ export async function deriveIPOEventsAndStatus(): Promise<{ updatedCount: number
             ipoId: ipo.id,
             eventType: 'IPO_OPEN',
             eventDate: ipo.openDate,
-            description: `${ipo.name} opened for subscription bidding.`,
+            description: `${ipo.name} opened for bidding.`,
           },
         });
         eventsCreated++;
@@ -77,7 +89,7 @@ export async function deriveIPOEventsAndStatus(): Promise<{ updatedCount: number
             ipoId: ipo.id,
             eventType: 'ALLOTMENT',
             eventDate: ipo.allotmentDate,
-            description: `Basis of Allotment for ${ipo.name} declared by registrar.`,
+            description: `Expected Basis of Allotment date for ${ipo.name}.`,
           },
         });
         eventsCreated++;
@@ -89,7 +101,7 @@ export async function deriveIPOEventsAndStatus(): Promise<{ updatedCount: number
             ipoId: ipo.id,
             eventType: 'LISTING',
             eventDate: ipo.listingDate,
-            description: `${ipo.name} listed on stock exchanges.`,
+            description: `${ipo.name} listed on stock exchange.`,
           },
         });
         eventsCreated++;

@@ -2,58 +2,43 @@ import { SubscriptionProvider, ProviderResponse, RawSubscriptionMetrics } from '
 
 export class ExchangeSubscriptionProvider implements SubscriptionProvider {
   readonly code = 'SUBSCRIPTION_EXCHANGE_FEED';
-  readonly name = 'Exchange Bidding Feed (BSE/NSE)';
+  readonly name = 'NSE Category Subscription Feed';
 
   async fetchSubscriptions(): Promise<ProviderResponse<RawSubscriptionMetrics>> {
     const now = new Date();
     try {
-      const items: RawSubscriptionMetrics[] = [
-        {
-          symbolOrName: 'DHOOT',
-          retail: 12.4,
-          nii: 28.5,
-          qib: 15.8,
-          employee: 2.1,
-          overall: 18.42,
-          snapshotDay: 'Day 3 (Final)',
-          snapshotTime: '05:00 PM',
-          source: 'BSE_NSE_COMBINED',
-          fetchedAt: now,
+      // Live fetch against exchange bidding endpoints
+      const res = await fetch('https://www.nseindia.com/api/ipo-bid-details', {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'application/json, text/plain, */*',
+          'Referer': 'https://www.nseindia.com/market-data/all-upcoming-issues-ipo',
         },
-        {
-          symbolOrName: 'SWIGGY',
-          retail: 1.14,
-          nii: 0.41,
-          qib: 6.02,
-          overall: 3.59,
-          snapshotDay: 'Day 3 (Final)',
-          snapshotTime: '05:00 PM',
-          source: 'BSE_NSE_COMBINED',
-          fetchedAt: now,
-        },
-        {
-          symbolOrName: 'NTPCGREEN',
-          retail: 0.85,
-          nii: 0.45,
-          qib: 0.0,
-          overall: 0.65,
-          snapshotDay: 'Day 1',
-          snapshotTime: '05:00 PM',
-          source: 'BSE_NSE_COMBINED',
-          fetchedAt: now,
-        },
-        {
-          symbolOrName: 'PREMIER',
-          retail: 25.8,
-          nii: 52.4,
-          qib: 216.3,
-          overall: 74.3,
-          snapshotDay: 'Day 3 (Final)',
-          snapshotTime: '05:00 PM',
-          source: 'BSE_NSE_COMBINED',
-          fetchedAt: now,
-        },
-      ];
+      });
+
+      if (!res.ok) {
+        throw new Error(`NSE Subscription HTTP ${res.status}: ${res.statusText}`);
+      }
+
+      const json = await res.json();
+      if (!Array.isArray(json)) {
+        throw new Error('Invalid subscription response format from exchange feed');
+      }
+
+      const items: RawSubscriptionMetrics[] = json.map((item: any) => ({
+        symbolOrName: item.symbol || item.companyName || 'IPO',
+        retail: parseFloat(item.retailSubscription || '0'),
+        nii: parseFloat(item.niiSubscription || '0'),
+        qib: parseFloat(item.qibSubscription || '0'),
+        employee: item.employeeSubscription ? parseFloat(item.employeeSubscription) : undefined,
+        shareholder: item.shareholderSubscription ? parseFloat(item.shareholderSubscription) : undefined,
+        overall: parseFloat(item.overallSubscription || '0'),
+        snapshotDay: item.dayNumber ? `Day ${item.dayNumber}` : 'Day 1',
+        snapshotTime: item.snapshotTime || '05:00 PM',
+        source: 'NSE_OFFICIAL_FEED',
+        fetchedAt: now,
+      }));
 
       return {
         success: true,
@@ -62,12 +47,13 @@ export class ExchangeSubscriptionProvider implements SubscriptionProvider {
         fetchedAt: now,
       };
     } catch (err: any) {
+      console.warn(`ExchangeSubscriptionProvider fetch failed: ${err.message}`);
       return {
         success: false,
         providerCode: this.code,
         data: [],
         fetchedAt: now,
-        errorMessage: err.message || 'Failed to fetch subscription metrics',
+        errorMessage: err.message || 'Failed to fetch subscription metrics from exchange',
       };
     }
   }

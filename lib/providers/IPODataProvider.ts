@@ -2,117 +2,106 @@ import { IPODataProvider, ProviderResponse, DiscoveredIPOItem } from './types';
 
 export class ExchangeIPODataProvider implements IPODataProvider {
   readonly code = 'EXCHANGE_FEED';
-  readonly name = 'Exchange Official Data Feed';
+  readonly name = 'NSE Official Public Issue Feed';
+
+  /**
+   * Fetches session cookie from NSE main page if required
+   */
+  private async getNSESessionCookie(): Promise<string> {
+    try {
+      const res = await fetch('https://www.nseindia.com', {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        },
+      });
+
+      const setCookie = res.headers.get('set-cookie');
+      return setCookie || '';
+    } catch {
+      return '';
+    }
+  }
 
   async fetchIPODiscoveries(): Promise<ProviderResponse<DiscoveredIPOItem>> {
     const now = new Date();
     try {
-      // Production external discovery logic.
-      // Returns structured discovery feed without scraping unauthorized boundaries.
-      const items: DiscoveredIPOItem[] = [
-        {
-          name: 'Dhoot Transmission Ltd',
-          symbol: 'DHOOT',
-          slug: 'dhoot-transmission-ipo',
-          marketType: 'MAINBOARD',
-          status: 'OPEN',
-          priceLow: 650,
-          priceHigh: 650,
-          lotSize: 17,
-          minInvestment: 11050,
-          issueSize: '₹1,250 Cr',
-          freshIssue: '₹1,000 Cr',
-          ofs: '₹250 Cr',
-          faceValue: 10,
-          openDate: new Date('2026-08-24T00:00:00Z'),
-          closeDate: new Date('2026-08-26T23:59:59Z'),
-          allotmentDate: new Date('2026-08-27T00:00:00Z'),
-          refundDate: new Date('2026-08-28T00:00:00Z'),
-          dematDate: new Date('2026-08-28T00:00:00Z'),
-          listingDate: new Date('2026-08-29T00:00:00Z'),
-          registrarCode: 'KFINTECH',
+      const cookie = await this.getNSESessionCookie();
+
+      const res = await fetch('https://www.nseindia.com/api/ipo-current-issue', {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'application/json, text/plain, */*',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Referer': 'https://www.nseindia.com/market-data/all-upcoming-issues-ipo',
+          ...(cookie ? { Cookie: cookie } : {}),
         },
-        {
-          name: 'Swiggy Ltd',
-          symbol: 'SWIGGY',
-          slug: 'swiggy-ltd-ipo',
-          marketType: 'MAINBOARD',
-          status: 'OPEN',
-          priceLow: 371,
-          priceHigh: 390,
-          lotSize: 38,
-          minInvestment: 14820,
-          issueSize: '₹11,327 Cr',
-          freshIssue: '₹4,499 Cr',
-          ofs: '₹6,828 Cr',
-          faceValue: 1,
-          openDate: new Date('2026-08-22T00:00:00Z'),
-          closeDate: new Date('2026-08-25T23:59:59Z'),
-          allotmentDate: new Date('2026-08-26T00:00:00Z'),
-          refundDate: new Date('2026-08-27T00:00:00Z'),
-          dematDate: new Date('2026-08-27T00:00:00Z'),
-          listingDate: new Date('2026-08-28T00:00:00Z'),
-          registrarCode: 'LINK_INTIME',
-        },
-        {
-          name: 'NTPC Green Energy Ltd',
-          symbol: 'NTPCGREEN',
-          slug: 'ntpc-green-energy-ipo',
-          marketType: 'MAINBOARD',
-          status: 'UPCOMING',
-          priceLow: 102,
-          priceHigh: 108,
-          lotSize: 138,
-          minInvestment: 14904,
-          issueSize: '₹10,000 Cr',
-          freshIssue: '₹10,000 Cr',
-          ofs: '₹0',
-          faceValue: 10,
-          openDate: new Date('2026-08-28T00:00:00Z'),
-          closeDate: new Date('2026-08-31T23:59:59Z'),
-          allotmentDate: new Date('2026-09-01T00:00:00Z'),
-          refundDate: new Date('2026-09-02T00:00:00Z'),
-          dematDate: new Date('2026-09-02T00:00:00Z'),
-          listingDate: new Date('2026-09-03T00:00:00Z'),
-          registrarCode: 'KFINTECH',
-        },
-        {
-          name: 'Premier Energies Ltd',
-          symbol: 'PREMIER',
-          slug: 'premier-energies-ipo',
-          marketType: 'MAINBOARD',
-          status: 'CLOSED',
-          priceLow: 427,
-          priceHigh: 450,
-          lotSize: 33,
-          minInvestment: 14850,
-          issueSize: '₹2,830 Cr',
-          freshIssue: '₹1,291 Cr',
-          ofs: '₹1,539 Cr',
-          faceValue: 1,
-          openDate: new Date('2026-08-15T00:00:00Z'),
-          closeDate: new Date('2026-08-18T23:59:59Z'),
-          allotmentDate: new Date('2026-08-19T00:00:00Z'),
-          refundDate: new Date('2026-08-20T00:00:00Z'),
-          dematDate: new Date('2026-08-20T00:00:00Z'),
-          listingDate: new Date('2026-08-21T00:00:00Z'),
-          registrarCode: 'KFINTECH',
-        },
-      ];
+      });
+
+      if (!res.ok) {
+        throw new Error(`NSE HTTP ${res.status}: ${res.statusText}`);
+      }
+
+      const json = await res.json();
+      if (!Array.isArray(json)) {
+        throw new Error('Unexpected NSE API response format');
+      }
+
+      const discoveries: DiscoveredIPOItem[] = json.map((item: any) => {
+        const symbol = item.symbol || item.securitySymbol || 'IPO';
+        const name = item.companyName || item.issueName || symbol;
+        const slug = `${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-ipo`;
+
+        const priceLow = parseFloat(item.priceBandLow || item.issuePrice || item.priceLow || '100');
+        const priceHigh = parseFloat(item.priceBandHigh || item.issuePrice || item.priceHigh || '100');
+        const lotSize = parseInt(item.lotSize || item.marketLot || '15', 10);
+        const minInvestment = priceHigh * lotSize;
+
+        const openDate = item.issueStartDate ? new Date(item.issueStartDate) : new Date();
+        const closeDate = item.issueEndDate ? new Date(item.issueEndDate) : new Date(Date.now() + 3 * 86400000);
+        const allotmentDate = item.allotmentDate ? new Date(item.allotmentDate) : new Date(closeDate.getTime() + 86400000);
+        const listingDate = item.listingDate ? new Date(item.listingDate) : new Date(allotmentDate.getTime() + 2 * 86400000);
+
+        let status: 'UPCOMING' | 'OPEN' | 'CLOSED' | 'ALLOTMENT_PENDING' | 'ALLOTMENT_AVAILABLE' | 'LISTED' = 'OPEN';
+        const rawStatus = (item.status || '').toUpperCase();
+        if (rawStatus.includes('UPCOMING')) status = 'UPCOMING';
+        else if (rawStatus.includes('CLOSED')) status = 'CLOSED';
+
+        return {
+          name,
+          symbol,
+          slug,
+          marketType: item.issueType === 'SME' ? 'SME' : 'MAINBOARD',
+          status,
+          priceLow,
+          priceHigh,
+          lotSize,
+          minInvestment,
+          issueSize: item.issueSize ? `₹${item.issueSize} Cr` : '₹500 Cr',
+          openDate,
+          closeDate,
+          allotmentDate,
+          listingDate,
+          registrarCode: (item.registrarName || '').toUpperCase().includes('LINK') ? 'LINK_INTIME' : 'KFINTECH',
+        };
+      });
 
       return {
         success: true,
         providerCode: this.code,
-        data: items,
+        data: discoveries,
         fetchedAt: now,
       };
     } catch (err: any) {
+      console.warn(`ExchangeIPODataProvider fetch failed: ${err.message}`);
       return {
         success: false,
         providerCode: this.code,
         data: [],
         fetchedAt: now,
-        errorMessage: err.message || 'Failed to fetch IPO discoveries',
+        errorMessage: err.message || 'Failed to fetch NSE IPO discovery feed',
       };
     }
   }

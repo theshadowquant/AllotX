@@ -2,41 +2,35 @@ import { GMPProvider, ProviderResponse, RawGMPQuote } from './types';
 
 export class ConsensusGMPProvider implements GMPProvider {
   readonly code = 'GMP_CONSENSUS_FEED';
-  readonly name = 'Grey Market Premium Consensus Engine';
+  readonly name = 'Chittorgarh OTC GMP Feed';
 
   async fetchGMPQuotes(): Promise<ProviderResponse<RawGMPQuote>> {
     const now = new Date();
     try {
-      const quotes: RawGMPQuote[] = [
-        {
-          symbolOrName: 'DHOOT',
-          gmp: 120,
-          reliabilityWeight: 0.95,
-          source: 'PRIMARY_CONSENSUS',
-          fetchedAt: now,
+      const res = await fetch('https://www.chittorgarh.com/api/ipo_gmp.json', {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'application/json, text/html, */*',
         },
-        {
-          symbolOrName: 'SWIGGY',
-          gmp: 45,
-          reliabilityWeight: 0.9,
-          source: 'PRIMARY_CONSENSUS',
-          fetchedAt: now,
-        },
-        {
-          symbolOrName: 'NTPCGREEN',
-          gmp: 18,
-          reliabilityWeight: 0.85,
-          source: 'PRIMARY_CONSENSUS',
-          fetchedAt: now,
-        },
-        {
-          symbolOrName: 'PREMIER',
-          gmp: 190,
-          reliabilityWeight: 0.95,
-          source: 'PRIMARY_CONSENSUS',
-          fetchedAt: now,
-        },
-      ];
+      });
+
+      if (!res.ok) {
+        throw new Error(`Chittorgarh GMP HTTP ${res.status}: ${res.statusText}`);
+      }
+
+      const json = await res.json();
+      if (!Array.isArray(json)) {
+        throw new Error('Unexpected GMP feed response structure');
+      }
+
+      const quotes: RawGMPQuote[] = json.map((item: any) => ({
+        symbolOrName: (item.name || item.company || '').toUpperCase().trim(),
+        gmp: parseFloat(item.gmp || item.premium || '0'),
+        reliabilityWeight: 0.9,
+        source: 'CHITTORGARH_FEED',
+        fetchedAt: now,
+      }));
 
       return {
         success: true,
@@ -45,12 +39,13 @@ export class ConsensusGMPProvider implements GMPProvider {
         fetchedAt: now,
       };
     } catch (err: any) {
+      console.warn(`ConsensusGMPProvider fetch failed: ${err.message}`);
       return {
         success: false,
         providerCode: this.code,
         data: [],
         fetchedAt: now,
-        errorMessage: err.message || 'Failed to fetch GMP quotes',
+        errorMessage: err.message || 'Chittorgarh primary GMP feed unavailable',
       };
     }
   }
@@ -58,23 +53,51 @@ export class ConsensusGMPProvider implements GMPProvider {
 
 export class FallbackGMPProvider implements GMPProvider {
   readonly code = 'GMP_FALLBACK_FEED';
-  readonly name = 'Secondary GMP Fallback Feed';
+  readonly name = 'IPOWatch OTC GMP Feed';
 
   async fetchGMPQuotes(): Promise<ProviderResponse<RawGMPQuote>> {
     const now = new Date();
-    return {
-      success: true,
-      providerCode: this.code,
-      data: [
-        {
-          symbolOrName: 'DHOOT',
-          gmp: 118,
-          reliabilityWeight: 0.7,
-          source: 'SECONDARY_FALLBACK',
-          fetchedAt: now,
+    try {
+      const res = await fetch('https://ipowatch.in/api/gmp-list.json', {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'application/json, text/html, */*',
         },
-      ],
-      fetchedAt: now,
-    };
+      });
+
+      if (!res.ok) {
+        throw new Error(`IPOWatch GMP HTTP ${res.status}: ${res.statusText}`);
+      }
+
+      const json = await res.json();
+      if (!Array.isArray(json)) {
+        throw new Error('Unexpected fallback GMP response format');
+      }
+
+      const quotes: RawGMPQuote[] = json.map((item: any) => ({
+        symbolOrName: (item.title || item.name || '').toUpperCase().trim(),
+        gmp: parseFloat(item.gmp || '0'),
+        reliabilityWeight: 0.75,
+        source: 'IPOWATCH_FEED',
+        fetchedAt: now,
+      }));
+
+      return {
+        success: true,
+        providerCode: this.code,
+        data: quotes,
+        fetchedAt: now,
+      };
+    } catch (err: any) {
+      console.warn(`FallbackGMPProvider fetch failed: ${err.message}`);
+      return {
+        success: false,
+        providerCode: this.code,
+        data: [],
+        fetchedAt: now,
+        errorMessage: err.message || 'IPOWatch secondary GMP feed unavailable',
+      };
+    }
   }
 }
