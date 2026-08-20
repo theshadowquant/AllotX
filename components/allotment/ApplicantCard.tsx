@@ -1,7 +1,5 @@
-'use client';
-
 import React from 'react';
-import { RefreshCw, ExternalLink, CheckCircle2, XCircle, AlertTriangle, Loader2, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { RefreshCw, CheckCircle2, XCircle, AlertTriangle, ShieldAlert, Clock, ExternalLink } from 'lucide-react';
 
 export interface ApplicantCardData {
   id: string;
@@ -10,150 +8,108 @@ export interface ApplicantCardData {
   status: 'PENDING' | 'CHECKING' | 'ALLOTTED' | 'NOT_ALLOTTED' | 'ERROR' | 'CAPTCHA_REQUIRED' | 'TEMPORARILY_UNAVAILABLE' | string;
   sharesAllotted: number;
   lotsAllotted: number;
-  applicationNumber?: string | null;
   verificationSource?: string | null;
   lastCheckedAt?: string | null;
   lastErrorMessage?: string | null;
-  officialUrl?: string | null;
 }
 
 interface ApplicantCardProps {
   applicant: ApplicantCardData;
-  onRefresh: (applicantId: string) => void;
-  onOpenVerification?: (applicantId: string) => void;
+  onRefresh: (id: string) => void;
+  onOpenVerification: (id: string) => void;
 }
 
 export function ApplicantCard({ applicant, onRefresh, onOpenVerification }: ApplicantCardProps) {
   const isChecking = applicant.status === 'CHECKING';
-  const isAllotted = applicant.status === 'ALLOTTED';
-  const isNotAllotted = applicant.status === 'NOT_ALLOTTED';
-  const isError = applicant.status === 'ERROR' || applicant.status === 'TEMPORARILY_UNAVAILABLE';
-  const isCaptcha = applicant.status === 'CAPTCHA_REQUIRED';
-
-  const formatLastChecked = (isoStr?: string | null) => {
-    if (!isoStr) return 'Not checked yet';
-    try {
-      const d = new Date(isoStr);
-      return `Last checked: ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-    } catch {
-      return 'Recently checked';
-    }
-  };
 
   const renderStatusBadge = () => {
-    if (isChecking) {
-      return (
-        <span className="flex items-center gap-1.5 text-xs font-semibold text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20">
-          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Checking...
-        </span>
-      );
-    }
+    switch (applicant.status) {
+      case 'ALLOTTED':
+        return (
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 border border-emerald-200 text-emerald-800 text-xs font-bold">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+            <span>{applicant.sharesAllotted} Shares Allotted ({applicant.lotsAllotted} Lot)</span>
+          </div>
+        );
 
-    if (isAllotted) {
-      return (
-        <div className="text-right">
-          <span className="inline-flex items-center gap-1.5 text-xs font-extrabold text-emerald-400 bg-emerald-500/15 px-3 py-1 rounded-full border border-emerald-500/30">
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            {applicant.sharesAllotted} Shares Allotted
-          </span>
-          {applicant.applicationNumber && (
-            <p className="text-[10px] text-emerald-500/80 font-mono mt-0.5">
-              App #{applicant.applicationNumber}
-            </p>
-          )}
-        </div>
-      );
-    }
+      case 'NOT_ALLOTTED':
+        return (
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold">
+            <XCircle className="w-3.5 h-3.5 text-rose-500" />
+            <span>Non Allotted</span>
+          </div>
+        );
 
-    if (isNotAllotted) {
-      return (
-        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-400 bg-rose-500/10 px-3 py-1 rounded-full border border-rose-500/20">
-          <XCircle className="w-3.5 h-3.5" /> Non Allotted
-        </span>
-      );
-    }
+      case 'CHECKING':
+        return (
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-50 border border-purple-200 text-purple-700 text-xs font-bold">
+            <RefreshCw className="w-3.5 h-3.5 animate-spin text-purple-700" />
+            <span>Checking Registrar...</span>
+          </div>
+        );
 
-    if (isCaptcha) {
-      return (
-        <button
-          onClick={() => onOpenVerification && onOpenVerification(applicant.id)}
-          className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-400 bg-blue-500/15 px-3 py-1 rounded-full border border-blue-500/30 hover:bg-blue-500/25 transition-colors"
-        >
-          <ShieldAlert className="w-3.5 h-3.5" /> Verification Required
-        </button>
-      );
-    }
+      case 'CAPTCHA_REQUIRED':
+        return (
+          <button
+            onClick={() => onOpenVerification(applicant.id)}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-100 border border-purple-200 text-purple-800 hover:bg-purple-200 text-xs font-bold transition-colors"
+          >
+            <ShieldAlert className="w-3.5 h-3.5 text-purple-700" />
+            <span>Verification Required (Solve)</span>
+          </button>
+        );
 
-    if (isError) {
-      return (
-        <div className="text-right">
-          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20">
-            <AlertTriangle className="w-3.5 h-3.5" /> Unable to Verify
-          </span>
-          <p className="text-[10px] text-amber-400/80 mt-0.5">
-            {applicant.lastErrorMessage || 'Registrar temporarily unavailable'}
-          </p>
-        </div>
-      );
-    }
+      case 'TEMPORARILY_UNAVAILABLE':
+      case 'ERROR':
+        return (
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold">
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+            <span>{applicant.lastErrorMessage || 'Registrar Temporarily Unavailable'}</span>
+          </div>
+        );
 
-    return (
-      <span className="text-xs font-medium text-gray-400 bg-gray-800 px-3 py-1 rounded-full border border-gray-700">
-        Pending Check
-      </span>
-    );
+      default:
+        return (
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-gray-100 border border-gray-200 text-gray-600 text-xs font-medium">
+            <Clock className="w-3.5 h-3.5 text-gray-400" />
+            <span>Pending Check</span>
+          </div>
+        );
+    }
   };
 
   return (
-    <div className="fintech-card p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-l-4 border-l-indigo-500">
-      {/* Left Details */}
-      <div className="space-y-1">
-        <div className="flex items-center gap-2">
-          <h4 className="font-bold text-base text-gray-100">{applicant.name}</h4>
-          <span className="text-xs font-mono px-2 py-0.5 rounded bg-card/90 text-gray-400 border border-border/80">
-            {applicant.panMasked}
-          </span>
+    <div className="bg-gray-50/80 border border-gray-200 rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-gray-300 transition-colors">
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-xs shrink-0">
+          {applicant.name.charAt(0).toUpperCase()}
         </div>
-
-        <div className="flex items-center gap-3 text-xs text-gray-400">
-          <span>{formatLastChecked(applicant.lastCheckedAt)}</span>
-          {applicant.verificationSource && (
-            <span className="text-gray-500 border-l border-gray-800 pl-3 flex items-center gap-1">
-              <ShieldCheck className="w-3 h-3 text-gray-400" /> Checked via{' '}
-              <strong className="text-gray-300 font-semibold">{applicant.verificationSource}</strong>
+        <div>
+          <div className="flex items-center gap-2">
+            <h4 className="font-bold text-sm text-gray-900">{applicant.name}</h4>
+            <span className="font-mono text-xs font-bold text-gray-600 bg-white px-2 py-0.5 rounded border border-gray-200">
+              {applicant.panMasked}
+            </span>
+          </div>
+          {applicant.lastCheckedAt && (
+            <span className="text-[10px] text-gray-500 block mt-0.5">
+              Checked via {applicant.verificationSource || 'Registrar'} • {new Date(applicant.lastCheckedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
             </span>
           )}
         </div>
       </div>
 
-      {/* Right Status & Refresh Action */}
-      <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/40">
+      <div className="flex items-center justify-between sm:justify-end gap-3 border-t sm:border-t-0 border-gray-200 pt-2 sm:pt-0">
         {renderStatusBadge()}
 
-        <div className="flex items-center gap-1.5">
-          {applicant.officialUrl && (
-            <a
-              href={applicant.officialUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="p-2 text-gray-400 hover:text-indigo-400 hover:bg-card rounded-lg transition-colors"
-              title="Verify on official registrar portal"
-            >
-              <ExternalLink className="w-4 h-4" />
-            </a>
-          )}
-
-          <button
-            onClick={() => onRefresh(applicant.id)}
-            disabled={isChecking}
-            className={`p-2 rounded-lg text-gray-300 hover:text-white hover:bg-card border border-border/60 transition-colors ${
-              isChecking ? 'opacity-50 cursor-not-allowed' : 'hover:border-indigo-500/50'
-            }`}
-            title="Refresh single applicant status"
-          >
-            <RefreshCw className={`w-4 h-4 ${isChecking ? 'animate-spin text-indigo-400' : ''}`} />
-          </button>
-        </div>
+        <button
+          onClick={() => onRefresh(applicant.id)}
+          disabled={isChecking}
+          aria-label="Refresh allotment status"
+          className="p-2 rounded-lg bg-white hover:bg-gray-100 border border-gray-200 text-gray-600 hover:text-purple-700 transition-colors disabled:opacity-40"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${isChecking ? 'animate-spin' : ''}`} />
+        </button>
       </div>
     </div>
   );

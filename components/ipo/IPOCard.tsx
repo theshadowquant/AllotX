@@ -1,7 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import { TrendingUp, TrendingDown, Minus, ArrowUpRight } from 'lucide-react';
-import { IPOStatusBadge } from './IPOStatusBadge';
+import { TrendingUp, TrendingDown, Minus, ChevronRight, Layers, ArrowUpRight } from 'lucide-react';
 import { formatINR, formatPercent, formatShortDate } from '@/lib/utils/formatters';
 
 export interface IPOCardData {
@@ -15,6 +14,7 @@ export interface IPOCardData {
   priceHigh: number;
   lotSize: number;
   minInvestment: number;
+  issueSize?: string;
   openDate: string;
   closeDate: string;
   gmp?: {
@@ -33,97 +33,124 @@ export interface IPOCardData {
 export function IPOCard({ ipo }: { ipo: IPOCardData }) {
   const gmpVal = ipo.gmp?.value ?? 0;
   const gmpPct = ipo.gmp?.percent ?? 0;
-  const estimatedListing = ipo.gmp?.estimatedListing ?? ipo.priceHigh;
-  const trend = ipo.gmp?.trend ?? 'STABLE';
   const isPositive = gmpVal > 0;
 
-  const renderTrendBadge = () => {
-    if (trend === 'RISING') {
-      return (
-        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400">
-          <TrendingUp className="w-3.5 h-3.5" /> GMP Rising
-        </span>
-      );
+  // Generate clean initial avatar for company logo fallback
+  const companyInitial = ipo.name ? ipo.name.charAt(0).toUpperCase() : 'I';
+
+  const getStatusBadge = () => {
+    switch (ipo.status) {
+      case 'OPEN':
+        return <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">Open</span>;
+      case 'UPCOMING':
+        return <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200">Upcoming</span>;
+      case 'ALLOTMENT_AVAILABLE':
+        return <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 border border-purple-200">Allotment Out</span>;
+      case 'LISTED':
+        return <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 border border-gray-200">Listed</span>;
+      default:
+        return <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-gray-200">Closed</span>;
     }
-    if (trend === 'FALLING') {
-      return (
-        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-400">
-          <TrendingDown className="w-3.5 h-3.5" /> GMP Falling
-        </span>
-      );
-    }
-    return (
-      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-400">
-        <Minus className="w-3.5 h-3.5" /> Stable
-      </span>
-    );
   };
 
   return (
-    <Link
-      href={`/ipos/${ipo.slug}`}
-      className="bg-[#111827] border border-[#1F293D] rounded-xl p-4 block hover:border-gray-600 transition-colors group"
-    >
-      {/* Top Row: Title, Market Tag, Status */}
-      <div className="flex items-start justify-between gap-2 mb-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <h3 className="font-bold text-base text-white group-hover:text-indigo-400 transition-colors line-clamp-1">
-              {ipo.name}
-            </h3>
-            <ArrowUpRight className="w-4 h-4 text-gray-500 group-hover:text-indigo-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all shrink-0" />
+    <div className="bg-white border border-gray-200 rounded-xl p-4 hover:border-purple-300 hover:shadow-md transition-all flex flex-col justify-between space-y-3">
+      {/* Top Row: Company Avatar + Title + Status */}
+      <div>
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-lg bg-purple-100 border border-purple-200 flex items-center justify-center font-extrabold text-purple-700 text-sm shrink-0">
+              {companyInitial}
+            </div>
+            <div>
+              <h3 className="font-bold text-sm text-gray-900 line-clamp-1 hover:text-purple-700 transition-colors">
+                <Link href={`/ipos/${ipo.slug}`}>{ipo.name}</Link>
+              </h3>
+              <div className="flex items-center gap-1.5 text-[11px] text-gray-500 mt-0.5">
+                <span className="font-semibold text-gray-700">{ipo.marketType}</span>
+                <span>•</span>
+                <span>{formatShortDate(ipo.openDate)} – {formatShortDate(ipo.closeDate)}</span>
+              </div>
+            </div>
           </div>
-          <span className="text-[11px] text-gray-400 font-mono">{ipo.symbol}</span>
-        </div>
-        <IPOStatusBadge status={ipo.status} marketType={ipo.marketType} />
-      </div>
 
-      {/* Main Dominant Metrics Box */}
-      <div className="grid grid-cols-2 gap-2 bg-[#090D16]/80 p-3 rounded-lg border border-[#1F293D] mb-3">
-        <div>
-          <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider block">GMP</span>
-          <div className="flex items-baseline gap-1.5 mt-0.5">
-            <span className={`font-extrabold text-base ${isPositive ? 'text-emerald-400' : 'text-gray-200'}`}>
-              {gmpVal > 0 ? `+₹${gmpVal}` : `₹${gmpVal}`}
+          {getStatusBadge()}
+        </div>
+
+        {/* 2x3 Compact Metrics Grid */}
+        <div className="grid grid-cols-3 gap-2 mt-3 bg-purple-50/50 p-2.5 rounded-lg border border-purple-100 text-xs">
+          <div>
+            <span className="text-[10px] font-semibold text-gray-500 uppercase block">Price Band</span>
+            <span className="font-bold text-gray-900 mt-0.5 block truncate">
+              ₹{ipo.priceLow}–₹{ipo.priceHigh}
             </span>
-            {gmpPct !== 0 && (
-              <span className={`text-xs font-bold ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
-                ({formatPercent(gmpPct)})
+          </div>
+
+          <div>
+            <span className="text-[10px] font-semibold text-gray-500 uppercase block">Issue Size</span>
+            <span className="font-bold text-gray-800 mt-0.5 block truncate">
+              {ipo.issueSize || 'N/A'}
+            </span>
+          </div>
+
+          <div>
+            <span className="text-[10px] font-semibold text-gray-500 uppercase block">GMP</span>
+            <div className="flex items-baseline gap-1 mt-0.5">
+              <span className={`font-extrabold ${isPositive ? 'text-emerald-600' : 'text-gray-900'}`}>
+                {gmpVal > 0 ? `+₹${gmpVal}` : `₹${gmpVal}`}
               </span>
-            )}
+              {gmpPct !== 0 && (
+                <span className={`text-[10px] font-bold ${isPositive ? 'text-emerald-600' : 'text-rose-600'}`}>
+                  ({formatPercent(gmpPct)})
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <span className="text-[10px] font-semibold text-gray-500 uppercase block">Subscription</span>
+            <span className="font-bold text-purple-700 mt-0.5 block">
+              {ipo.subscription?.overall ? `${ipo.subscription.overall}x` : 'N/A'}
+            </span>
+          </div>
+
+          <div>
+            <span className="text-[10px] font-semibold text-gray-500 uppercase block">Lot Size</span>
+            <span className="font-semibold text-gray-800 mt-0.5 block">
+              {ipo.lotSize} Shares
+            </span>
+          </div>
+
+          <div>
+            <span className="text-[10px] font-semibold text-gray-500 uppercase block">Type</span>
+            <span className="font-medium text-gray-700 mt-0.5 block truncate">
+              {ipo.marketType}
+            </span>
           </div>
         </div>
-
-        <div>
-          <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider block">Estimated Listing</span>
-          <span className="font-extrabold text-base text-white mt-0.5 block">
-            {formatINR(estimatedListing)}
-          </span>
-        </div>
-
-        <div>
-          <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider block">Price Band</span>
-          <span className="font-semibold text-xs text-gray-300 mt-0.5 block">
-            ₹{ipo.priceLow} – ₹{ipo.priceHigh}
-          </span>
-        </div>
-
-        <div>
-          <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider block">Subscription</span>
-          <span className="font-bold text-xs text-indigo-300 mt-0.5 block">
-            {ipo.subscription?.overall ? `${ipo.subscription.overall}×` : 'N/A'}
-          </span>
-        </div>
       </div>
 
-      {/* Footer: Dates & Trend */}
-      <div className="flex items-center justify-between text-xs text-gray-400 pt-1 border-t border-[#1F293D]/60">
-        <div>
-          <span>{formatShortDate(ipo.openDate)} – {formatShortDate(ipo.closeDate)}</span>
-        </div>
-
-        {renderTrendBadge()}
+      {/* Action Buttons Row */}
+      <div className="grid grid-cols-3 gap-1.5 pt-1 border-t border-gray-100 text-center">
+        <Link
+          href={`/gmp?search=${encodeURIComponent(ipo.name)}`}
+          className="py-1.5 px-2 bg-gray-50 hover:bg-purple-50 text-gray-700 hover:text-purple-700 rounded-md text-[11px] font-semibold border border-gray-200 transition-colors"
+        >
+          Live GMP
+        </Link>
+        <Link
+          href={`/ipos/${ipo.slug}`}
+          className="py-1.5 px-2 bg-gray-50 hover:bg-purple-50 text-gray-700 hover:text-purple-700 rounded-md text-[11px] font-semibold border border-gray-200 transition-colors"
+        >
+          Subscription
+        </Link>
+        <Link
+          href={`/ipos/${ipo.slug}`}
+          className="py-1.5 px-2 bg-purple-700 hover:bg-purple-800 text-white rounded-md text-[11px] font-bold transition-colors flex items-center justify-center gap-0.5"
+        >
+          Details <ChevronRight className="w-3 h-3" />
+        </Link>
       </div>
-    </Link>
+    </div>
   );
 }

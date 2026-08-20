@@ -1,21 +1,22 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { Header } from '@/components/common/Header';
+import { Footer } from '@/components/common/Footer';
 import { BottomNavigation } from '@/components/common/BottomNavigation';
 
 export const metadata: Metadata = {
-  title: 'AllotX — Indian IPO Intelligence Platform',
+  title: "AllotX — India's IPO Hub for GMP, Subscription & Allotment",
   description:
-    'IPO intelligence, simplified. Track live & historical GMP, subscription statistics, IPO dates, and manage multi-PAN allotment status across Indian registrars.',
+    'Track open and upcoming Indian IPOs, live grey market premium (GMP), subscription statistics, and check allotment status across multiple PAN applications.',
   manifest: '/manifest.json',
   appleWebApp: {
     title: 'AllotX',
-    statusBarStyle: 'black-translucent',
+    statusBarStyle: 'default',
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: '#090D16',
+  themeColor: '#FFFFFF',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
@@ -27,7 +28,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="light">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -36,19 +37,12 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="bg-[#090D16] text-gray-100 min-h-screen flex flex-col antialiased selection:bg-indigo-600 selection:text-white">
+      <body className="bg-white text-gray-900 min-h-screen flex flex-col antialiased selection:bg-purple-600 selection:text-white">
         <Header />
-        <main className="flex-1 pb-16 md:pb-8 max-w-[1400px] w-full mx-auto px-4 sm:px-6 pt-5">
+        <main className="flex-1 pb-16 md:pb-8 max-w-[1280px] w-full mx-auto px-4 sm:px-6 pt-4">
           {children}
         </main>
-        <footer className="hidden md:block border-t border-[#1F293D] py-4 text-center text-xs text-gray-500 max-w-[1400px] mx-auto px-6">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
-            <span>AllotX © 2026 — IPO intelligence, simplified.</span>
-            <span className="text-[11px] text-gray-600">
-              IPO information is for informational purposes only. GMP is unofficial market sentiment and does not guarantee listing performance.
-            </span>
-          </div>
-        </footer>
+        <Footer />
         <BottomNavigation />
       </body>
     </html>

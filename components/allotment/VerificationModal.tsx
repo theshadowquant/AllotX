@@ -1,114 +1,102 @@
-'use client';
-
 import React, { useState } from 'react';
-import { ShieldCheck, X, RefreshCw, KeyRound } from 'lucide-react';
+import { ShieldAlert, X, CheckCircle2 } from 'lucide-react';
 
 interface VerificationModalProps {
   isOpen: boolean;
   applicantName?: string;
   registrarName?: string;
   onClose: () => void;
-  onVerifySubmit: (code: string) => void;
+  onVerifySubmit: (captchaCode: string) => void;
 }
 
 export function VerificationModal({
   isOpen,
   applicantName,
-  registrarName = 'Registrar Portal',
+  registrarName = 'KFintech',
   onClose,
   onVerifySubmit,
 }: VerificationModalProps) {
-  const [code, setCode] = useState('');
+  const [captchaInput, setCaptchaInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!code.trim()) return;
+    if (!captchaInput.trim()) return;
+
     setIsSubmitting(true);
     setTimeout(() => {
-      onVerifySubmit(code.trim());
+      onVerifySubmit(captchaInput.trim());
       setIsSubmitting(false);
-      setCode('');
+      setCaptchaInput('');
       onClose();
     }, 400);
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-card border border-border rounded-2xl p-6 max-w-md w-full shadow-2xl relative">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
-        >
-          <X className="w-5 h-5" />
-        </button>
-
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-blue-400">
-            <ShieldCheck className="w-5 h-5" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white border border-gray-200 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl">
+        <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+          <div className="flex items-center gap-2">
+            <ShieldAlert className="w-5 h-5 text-purple-700" />
+            <h3 className="font-bold text-base text-gray-900">Verification Required</h3>
           </div>
-          <div>
-            <h3 className="font-bold text-lg text-white">Verification Required</h3>
-            <p className="text-xs text-gray-400">
-              {registrarName} security enquiry check
-            </p>
-          </div>
-        </div>
-
-        <p className="text-xs text-gray-300 mb-4 leading-relaxed">
-          Please complete the registrar verification code to check IPO allotment status for{' '}
-          <strong className="text-white font-semibold">{applicantName || 'Applicant'}</strong>.
-        </p>
-
-        {/* Simulated Registrar CAPTCHA Box */}
-        <div className="bg-slate-900 border border-slate-700/80 p-4 rounded-xl flex items-center justify-between mb-4">
-          <div className="font-mono font-extrabold text-2xl tracking-widest text-indigo-400 bg-indigo-950/60 px-4 py-2 rounded border border-indigo-800/50 select-none">
-            7 8 K 9 W
-          </div>
-          <button
-            type="button"
-            className="text-xs text-gray-400 hover:text-indigo-300 flex items-center gap-1"
-            title="Refresh code"
-          >
-            <RefreshCw className="w-3.5 h-3.5" /> Refresh
+          <button onClick={onClose} className="p-1 rounded-lg text-gray-400 hover:text-gray-600">
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-gray-300 mb-1.5 flex items-center gap-1.5">
-              <KeyRound className="w-3.5 h-3.5 text-indigo-400" /> Enter verification code
-            </label>
-            <input
-              type="text"
-              placeholder="Enter text shown above..."
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm font-mono text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-              autoFocus
-              required
-            />
+        <p className="text-xs text-gray-600 leading-relaxed">
+          The official registrar portal (<strong className="text-purple-700">{registrarName}</strong>) requires user verification to return allotment details for <strong className="text-gray-900">{applicantName}</strong>.
+        </p>
+
+        {/* Mock CAPTCHA Challenge UI */}
+        <div className="bg-purple-50/60 p-4 rounded-xl border border-purple-100 space-y-3">
+          <span className="text-[11px] font-bold text-purple-800 uppercase tracking-wider block">Registrar Verification Challenge</span>
+
+          <div className="bg-white p-3 rounded-lg border border-purple-200 flex items-center justify-between">
+            <span className="font-mono font-black text-xl tracking-widest text-purple-900 select-none">
+              8 7 B K 2
+            </span>
+            <span className="text-[10px] font-bold text-purple-700 bg-purple-100 px-2 py-0.5 rounded">
+              {registrarName} Security
+            </span>
           </div>
 
-          <div className="flex items-center gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 py-2.5 px-4 rounded-xl border border-slate-700 text-xs font-semibold text-gray-300 hover:bg-slate-800 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting || !code.trim()}
-              className="flex-1 py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white shadow-lg shadow-indigo-600/20 transition-all disabled:opacity-50"
-            >
-              {isSubmitting ? 'Verifying...' : 'Continue'}
-            </button>
-          </div>
-        </form>
+          <form onSubmit={handleSubmit} className="space-y-3 pt-1">
+            <input
+              type="text"
+              placeholder="Enter 5-character security code..."
+              value={captchaInput}
+              onChange={(e) => setCaptchaInput(e.target.value)}
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-xs font-mono text-gray-900 placeholder-gray-400 focus:outline-none focus:border-purple-600"
+              required
+            />
+
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 py-2 px-3 rounded-lg border border-gray-300 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="flex-1 py-2 px-3 rounded-lg bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold transition-all shadow-sm disabled:opacity-50"
+              >
+                {isSubmitting ? 'Verifying...' : 'Submit & Check Allotment'}
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <p className="text-[10px] text-gray-500">
+          🔒 Verification codes are submitted directly to the registrar's enquiry session. AllotX never circumvents registrar security.
+        </p>
       </div>
     </div>
   );

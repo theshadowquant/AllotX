@@ -1,13 +1,13 @@
 import React from 'react';
-import { Users } from 'lucide-react';
+import { BarChart3, Info } from 'lucide-react';
 
 interface SubscriptionData {
-  overall: number;
-  retail: number;
-  nii: number;
-  qib: number;
+  retail?: number | null;
+  nii?: number | null;
+  qib?: number | null;
   employee?: number | null;
   shareholder?: number | null;
+  overall: number;
   snapshotDay?: string | null;
   snapshotTime?: string | null;
 }
@@ -15,65 +15,82 @@ interface SubscriptionData {
 export function SubscriptionCard({ data }: { data?: SubscriptionData | null }) {
   if (!data) {
     return (
-      <div className="fintech-card p-5">
-        <h4 className="font-bold text-base text-gray-100 flex items-center gap-2 mb-3">
-          <Users className="w-4 h-4 text-indigo-400" /> Subscription Data
-        </h4>
-        <p className="text-sm text-gray-400">Subscription data pending or not published yet.</p>
+      <div className="bg-white border border-gray-200 p-5 rounded-2xl text-center space-y-2 shadow-sm">
+        <Info className="w-5 h-5 text-purple-700 mx-auto" />
+        <h4 className="font-bold text-sm text-gray-900">Live Category Subscription</h4>
+        <p className="text-xs text-gray-500">Subscription bidding figures have not yet been published for this issue.</p>
       </div>
     );
   }
 
-  const categories = [
-    { label: 'Retail', value: data.retail, color: 'bg-emerald-500' },
-    { label: 'NII (HNI)', value: data.nii, color: 'bg-indigo-500' },
-    { label: 'QIB', value: data.qib, color: 'bg-blue-500' },
-    ...(data.employee !== undefined && data.employee !== null
-      ? [{ label: 'Employee', value: data.employee, color: 'bg-purple-500' }]
-      : []),
-    ...(data.shareholder !== undefined && data.shareholder !== null
-      ? [{ label: 'Shareholder', value: data.shareholder, color: 'bg-amber-500' }]
-      : []),
-  ];
-
   return (
-    <div className="fintech-card p-5">
-      <div className="flex items-center justify-between gap-2 mb-4">
+    <div className="bg-white border border-gray-200 p-5 rounded-2xl space-y-4 shadow-sm">
+      <div className="flex items-center justify-between border-b border-gray-100 pb-3">
         <div>
-          <h4 className="font-bold text-base text-gray-100 flex items-center gap-2">
-            <Users className="w-4 h-4 text-indigo-400" /> Subscription Statistics
-          </h4>
+          <h3 className="font-extrabold text-sm text-gray-900 flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 text-purple-700" /> Bidding Subscription
+          </h3>
           {data.snapshotDay && (
-            <p className="text-xs text-gray-400 mt-0.5">
-              Snapshot: <strong className="text-gray-300 font-medium">{data.snapshotDay}</strong> ({data.snapshotTime || 'Latest'})
-            </p>
+            <span className="text-[10px] font-semibold text-purple-700 block mt-0.5">
+              {data.snapshotDay} {data.snapshotTime ? `(${data.snapshotTime})` : ''}
+            </span>
           )}
         </div>
 
-        <div className="text-right bg-indigo-500/10 px-3 py-1.5 rounded-lg border border-indigo-500/20">
-          <span className="text-[10px] font-medium text-indigo-300 uppercase tracking-wider block">Overall</span>
-          <span className="text-lg font-extrabold text-indigo-400">
-            {data.overall}×
-          </span>
+        <div className="text-right">
+          <span className="text-[10px] font-semibold text-gray-400 uppercase block">Total Demand</span>
+          <span className="font-black text-lg text-purple-700">{data.overall}x</span>
         </div>
       </div>
 
-      <div className="space-y-3">
-        {categories.map((cat) => (
-          <div key={cat.label} className="space-y-1">
-            <div className="flex justify-between text-xs font-semibold">
-              <span className="text-gray-300">{cat.label}</span>
-              <span className="text-gray-100 font-bold">{cat.value}×</span>
-            </div>
+      <div className="space-y-3 text-xs">
+        <div>
+          <div className="flex justify-between font-semibold mb-1">
+            <span className="text-gray-600">Retail Individual (RII)</span>
+            <span className="font-bold text-gray-900">{data.retail ? `${data.retail}x` : 'N/A'}</span>
+          </div>
+          <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-purple-600 rounded-full transition-all duration-500"
+              style={{ width: `${Math.min((data.retail || 0) * 5, 100)}%` }}
+            ></div>
+          </div>
+        </div>
 
-            <div className="h-2 w-full bg-card/90 rounded-full overflow-hidden border border-border/40">
-              <div
-                className={`h-full ${cat.color} transition-all duration-500 rounded-full`}
-                style={{ width: `${Math.min(100, (cat.value / Math.max(data.overall, 1)) * 100)}%` }}
-              />
+        <div>
+          <div className="flex justify-between font-semibold mb-1">
+            <span className="text-gray-600">Non-Institutional (NII / HNI)</span>
+            <span className="font-bold text-gray-900">{data.nii ? `${data.nii}x` : 'N/A'}</span>
+          </div>
+          <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-indigo-600 rounded-full transition-all duration-500"
+              style={{ width: `${Math.min((data.nii || 0) * 5, 100)}%` }}
+            ></div>
+          </div>
+        </div>
+
+        <div>
+          <div className="flex justify-between font-semibold mb-1">
+            <span className="text-gray-600">Qualified Institutional (QIB)</span>
+            <span className="font-bold text-gray-900">{data.qib ? `${data.qib}x` : 'N/A'}</span>
+          </div>
+          <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-blue-600 rounded-full transition-all duration-500"
+              style={{ width: `${Math.min((data.qib || 0) * 5, 100)}%` }}
+            ></div>
+          </div>
+        </div>
+
+        {data.employee !== undefined && data.employee !== null && (
+          <div>
+            <div className="flex justify-between font-semibold mb-1">
+              <span className="text-gray-600">Employee Reservation</span>
+              <span className="font-bold text-gray-900">{data.employee}x</span>
             </div>
           </div>
-        ))}
+        )}
       </div>
     </div>
   );

@@ -2,12 +2,39 @@ import React from 'react';
 import Link from 'next/link';
 import { db } from '@/lib/db';
 import { IPOCard } from '@/components/ipo/IPOCard';
-import { TrendingUp, TrendingDown, Layers, Calendar, ArrowRight, ShieldCheck, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
+import {
+  TrendingUp,
+  Layers,
+  Calendar,
+  ArrowRight,
+  ShieldCheck,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  Search,
+  Sparkles,
+  BarChart3,
+  UserCheck,
+  ChevronRight,
+  HelpCircle,
+  Smartphone,
+} from 'lucide-react';
 import { formatINR, formatPercent, formatShortDate } from '@/lib/utils/formatters';
 
 export const revalidate = 0;
 
-export default async function HomePage() {
+interface HomePageProps {
+  searchParams: Promise<{
+    tab?: string;
+    market?: string;
+  }>;
+}
+
+export default async function HomePage({ searchParams }: HomePageProps) {
+  const params = await searchParams;
+  const activeTab = params.tab || 'CURRENT';
+  const activeMarket = params.market || 'ALL';
+
   let ipos: any[] = [];
   let userGroups: any[] = [];
 
@@ -60,9 +87,11 @@ export default async function HomePage() {
       priceHigh: ipo.priceHigh,
       lotSize: ipo.lotSize,
       minInvestment: ipo.minInvestment,
+      issueSize: ipo.issueSize,
       openDate: ipo.openDate?.toISOString ? ipo.openDate.toISOString() : new Date().toISOString(),
       closeDate: ipo.closeDate?.toISOString ? ipo.closeDate.toISOString() : new Date().toISOString(),
       allotmentDate: ipo.allotmentDate?.toISOString ? ipo.allotmentDate.toISOString() : new Date().toISOString(),
+      listingDate: ipo.listingDate?.toISOString ? ipo.listingDate.toISOString() : new Date().toISOString(),
       gmp: latestGMP
         ? {
             value: gmpVal,
@@ -77,243 +106,584 @@ export default async function HomePage() {
     };
   });
 
-  const openIPOs = formattedIPOs.filter((i) => i.status === 'OPEN');
-  const upcomingIPOs = formattedIPOs.filter((i) => i.status === 'UPCOMING');
-  const allotmentOutIPOs = formattedIPOs.filter((i) => i.status === 'ALLOTMENT_AVAILABLE');
+  // Calculate live database counts for "TODAY ON ALLOTX" Hero Card
+  const openCount = formattedIPOs.filter((i) => i.status === 'OPEN').length;
+  const upcomingCount = formattedIPOs.filter((i) => i.status === 'UPCOMING').length;
+  const allotmentPendingCount = formattedIPOs.filter(
+    (i) => i.status === 'ALLOTMENT_PENDING' || i.status === 'ALLOTMENT_AVAILABLE'
+  ).length;
+  const totalTrackedCount = formattedIPOs.length;
 
-  // Top GMP movers sorted by highest GMP % gain
-  const gmpMovers = [...formattedIPOs]
-    .filter((i) => i.gmp && i.gmp.value !== 0)
-    .sort((a, b) => (b.gmp?.percent || 0) - (a.gmp?.percent || 0))
-    .slice(0, 4);
+  // Filter IPOs based on status tab and market type
+  let filteredIPOs = formattedIPOs;
 
-  // Next important event calculation
-  const nextEventIPO = formattedIPOs.find(
-    (i) => i.status === 'OPEN' || i.status === 'ALLOTMENT_PENDING' || i.status === 'UPCOMING'
+  if (activeTab === 'CURRENT') {
+    filteredIPOs = filteredIPOs.filter((i) => i.status === 'OPEN');
+  } else if (activeTab === 'UPCOMING') {
+    filteredIPOs = filteredIPOs.filter((i) => i.status === 'UPCOMING');
+  } else if (activeTab === 'CLOSED') {
+    filteredIPOs = filteredIPOs.filter(
+      (i) => i.status === 'CLOSED' || i.status === 'ALLOTMENT_AVAILABLE' || i.status === 'LISTED'
+    );
+  }
+
+  if (activeMarket !== 'ALL') {
+    filteredIPOs = filteredIPOs.filter((i) => i.marketType === activeMarket);
+  }
+
+  const openIPOsList = formattedIPOs.filter((i) => i.status === 'OPEN');
+  const closedIPOsList = formattedIPOs.filter(
+    (i) => i.status === 'CLOSED' || i.status === 'ALLOTMENT_AVAILABLE' || i.status === 'LISTED'
   );
 
-  const todayDateStr = new Date().toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-  });
-
   return (
-    <div className="space-y-6">
-      {/* 1. Header & Date Snapshot */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#1F293D] pb-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-extrabold text-white">IPO Market Snapshot</h1>
-          <p className="text-xs text-gray-400 mt-0.5">{todayDateStr} • Live Grey Market & Allotments</p>
+    <div className="space-y-10 pb-10">
+      {/* 1. HERO SECTION */}
+      <section className="bg-purple-50/70 border border-purple-100 rounded-2xl p-6 sm:p-8 lg:p-10 relative overflow-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center relative z-10">
+          {/* Left Column: Headline & Action Buttons */}
+          <div className="lg:col-span-7 space-y-4">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-purple-200 shadow-sm text-xs font-bold text-purple-700">
+              <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+              <span>India's Live IPO Intelligence Dashboard</span>
+            </div>
+
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-gray-900 leading-tight tracking-tight">
+              India's IPO hub for <span className="text-purple-700">GMP</span>, <span className="text-purple-700">subscription</span> & allotment
+            </h1>
+
+            <p className="text-sm sm:text-base text-gray-600 leading-relaxed max-w-xl">
+              Track open and upcoming IPOs, live grey market premiums, subscription bidding data, and check allotment results across multiple family PAN applications.
+            </p>
+
+            {/* CTA Buttons */}
+            <div className="flex flex-wrap items-center gap-3 pt-2">
+              <Link
+                href="/my-ipos"
+                className="px-5 py-3 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-bold text-sm shadow-md shadow-purple-700/20 flex items-center gap-2 transition-all"
+              >
+                <ShieldCheck className="w-4 h-4" /> Check IPO Allotment
+              </Link>
+              <Link
+                href="/gmp"
+                className="px-5 py-3 rounded-xl bg-white hover:bg-purple-50 text-gray-800 font-bold text-sm border border-gray-300 transition-colors flex items-center gap-2"
+              >
+                <TrendingUp className="w-4 h-4 text-purple-700" /> Live IPO GMP
+              </Link>
+              <Link
+                href="/ipos"
+                className="px-4 py-3 rounded-xl bg-white hover:bg-purple-50 text-gray-700 font-semibold text-sm border border-gray-200 transition-colors"
+              >
+                IPO Screener
+              </Link>
+            </div>
+
+            {/* Trust Labels */}
+            <div className="flex flex-wrap items-center gap-4 text-xs font-semibold text-gray-500 pt-3 border-t border-purple-100/80">
+              <span className="flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Free for retail investors</span>
+              <span className="flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Mainboard & SME IPOs</span>
+              <span className="flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Official registrar links</span>
+            </div>
+          </div>
+
+          {/* Right Column: "TODAY ON ALLOTX" Live Card */}
+          <div className="lg:col-span-5">
+            <div className="bg-white border border-purple-100 rounded-2xl p-5 shadow-lg space-y-4">
+              <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                <span className="text-xs font-extrabold uppercase tracking-wider text-purple-700 flex items-center gap-1.5">
+                  <BarChart3 className="w-4 h-4" /> TODAY ON ALLOTX
+                </span>
+                <span className="text-[11px] font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                  Live Data
+                </span>
+              </div>
+
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-50/60 border border-emerald-100">
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span className="text-xs font-bold text-gray-800">Open for subscription</span>
+                  </div>
+                  <span className="font-black text-lg text-emerald-700">{openCount}</span>
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-xl bg-blue-50/60 border border-blue-100">
+                  <div className="flex items-center gap-2.5">
+                    <Clock className="w-4 h-4 text-blue-600" />
+                    <span className="text-xs font-bold text-gray-800">Upcoming IPOs</span>
+                  </div>
+                  <span className="font-black text-lg text-blue-700">{upcomingCount}</span>
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-xl bg-purple-50/60 border border-purple-100">
+                  <div className="flex items-center gap-2.5">
+                    <CheckCircle2 className="w-4 h-4 text-purple-600" />
+                    <span className="text-xs font-bold text-gray-800">Awaiting allotment</span>
+                  </div>
+                  <span className="font-black text-lg text-purple-700">{allotmentPendingCount}</span>
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-xl bg-gray-50 border border-gray-200">
+                  <div className="flex items-center gap-2.5">
+                    <Layers className="w-4 h-4 text-gray-600" />
+                    <span className="text-xs font-bold text-gray-800">IPOs tracked</span>
+                  </div>
+                  <span className="font-black text-lg text-gray-900">{totalTrackedCount}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 2. IPO STATUS NAVIGATION TABS & MARKET FILTER */}
+      <section className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-200 pb-3">
+          {/* Status Tabs */}
+          <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl text-xs font-bold self-start">
+            <Link
+              href={`/?tab=CURRENT&market=${activeMarket}`}
+              className={`px-4 py-2 rounded-lg transition-all ${
+                activeTab === 'CURRENT' ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Current ({openCount})
+            </Link>
+            <Link
+              href={`/?tab=UPCOMING&market=${activeMarket}`}
+              className={`px-4 py-2 rounded-lg transition-all ${
+                activeTab === 'UPCOMING' ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Upcoming ({upcomingCount})
+            </Link>
+            <Link
+              href={`/?tab=CLOSED&market=${activeMarket}`}
+              className={`px-4 py-2 rounded-lg transition-all ${
+                activeTab === 'CLOSED' ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Closed
+            </Link>
+          </div>
+
+          {/* Market Filter */}
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-600">
+            <span className="text-gray-400 text-[11px] uppercase tracking-wider font-bold">Segment:</span>
+            <Link
+              href={`/?tab=${activeTab}&market=ALL`}
+              className={`px-3 py-1 rounded-lg border transition-colors ${
+                activeMarket === 'ALL'
+                  ? 'bg-purple-100 text-purple-700 border-purple-200 font-bold'
+                  : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+              }`}
+            >
+              All
+            </Link>
+            <Link
+              href={`/?tab=${activeTab}&market=MAINBOARD`}
+              className={`px-3 py-1 rounded-lg border transition-colors ${
+                activeMarket === 'MAINBOARD'
+                  ? 'bg-purple-100 text-purple-700 border-purple-200 font-bold'
+                  : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+              }`}
+            >
+              Mainboard
+            </Link>
+            <Link
+              href={`/?tab=${activeTab}&market=SME`}
+              className={`px-3 py-1 rounded-lg border transition-colors ${
+                activeMarket === 'SME'
+                  ? 'bg-purple-100 text-purple-700 border-purple-200 font-bold'
+                  : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+              }`}
+            >
+              SME
+            </Link>
+          </div>
+        </div>
+
+        {/* 3. CURRENT IPO CARDS GRID */}
+        {filteredIPOs.length === 0 ? (
+          <div className="bg-gray-50 border border-gray-200 rounded-xl p-8 text-center space-y-3">
+            <AlertCircle className="w-8 h-8 text-amber-500 mx-auto" />
+            <h3 className="font-bold text-gray-900 text-base">No IPOs match the selected filter</h3>
+            <p className="text-xs text-gray-500">Try selecting another tab or resetting the market filter.</p>
+            <Link href="/" className="inline-block px-4 py-2 bg-purple-700 text-white font-bold text-xs rounded-lg">
+              Reset Filters
+            </Link>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredIPOs.map((ipo) => (
+              <IPOCard key={ipo.id} ipo={ipo} />
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* 4. QUICK FEATURE STRIP */}
+      <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <Link
+          href="/gmp"
+          className="bg-white border border-gray-200 hover:border-purple-300 p-4 rounded-xl flex items-center gap-3 group transition-all"
+        >
+          <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold shrink-0">
+            <TrendingUp className="w-5 h-5" />
+          </div>
+          <div>
+            <h4 className="font-bold text-xs text-gray-900 group-hover:text-purple-700 transition-colors">Live IPO GMP</h4>
+            <p className="text-[11px] text-gray-500">Grey market premium today</p>
+          </div>
+        </Link>
+
+        <Link
+          href="/ipos"
+          className="bg-white border border-gray-200 hover:border-purple-300 p-4 rounded-xl flex items-center gap-3 group transition-all"
+        >
+          <div className="w-10 h-10 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center font-bold shrink-0">
+            <BarChart3 className="w-5 h-5" />
+          </div>
+          <div>
+            <h4 className="font-bold text-xs text-gray-900 group-hover:text-purple-700 transition-colors">Subscription</h4>
+            <p className="text-[11px] text-gray-500">QIB, NII & retail bids</p>
+          </div>
+        </Link>
+
+        <Link
+          href="/my-ipos"
+          className="bg-white border border-gray-200 hover:border-purple-300 p-4 rounded-xl flex items-center gap-3 group transition-all"
+        >
+          <div className="w-10 h-10 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold shrink-0">
+            <UserCheck className="w-5 h-5" />
+          </div>
+          <div>
+            <h4 className="font-bold text-xs text-gray-900 group-hover:text-purple-700 transition-colors">Allotment</h4>
+            <p className="text-[11px] text-gray-500">Check result by PAN</p>
+          </div>
+        </Link>
+
+        <Link
+          href="/calendar"
+          className="bg-white border border-gray-200 hover:border-purple-300 p-4 rounded-xl flex items-center gap-3 group transition-all"
+        >
+          <div className="w-10 h-10 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center font-bold shrink-0">
+            <Calendar className="w-5 h-5" />
+          </div>
+          <div>
+            <h4 className="font-bold text-xs text-gray-900 group-hover:text-purple-700 transition-colors">IPO Screener</h4>
+            <p className="text-[11px] text-gray-500">Full market calendar</p>
+          </div>
+        </Link>
+      </section>
+
+      {/* 5. CURRENT IPOs DATA TABLE */}
+      <section className="bg-white border border-gray-200 rounded-2xl p-5 space-y-4">
+        <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+          <div>
+            <h2 className="font-extrabold text-base text-gray-900">Current Open IPOs</h2>
+            <p className="text-xs text-gray-500">Live prices, grey market estimates, and retail subscription status.</p>
+          </div>
+          <Link href="/ipos" className="text-xs font-bold text-purple-700 hover:underline flex items-center gap-1">
+            View all →
+          </Link>
+        </div>
+
+        <div className="hidden md:block overflow-x-auto">
+          <table className="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr className="border-b border-gray-200 bg-gray-50 text-gray-500 uppercase tracking-wider font-semibold">
+                <th className="py-3 px-4">Company</th>
+                <th className="py-3 px-4">Price</th>
+                <th className="py-3 px-4">GMP</th>
+                <th className="py-3 px-4">Min. Invest</th>
+                <th className="py-3 px-4">Subscription</th>
+                <th className="py-3 px-4">Est. Profit</th>
+                <th className="py-3 px-4 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 text-gray-800">
+              {openIPOsList.map((ipo) => {
+                const estProfit = ipo.gmp?.value ? ipo.gmp.value * ipo.lotSize : 0;
+                return (
+                  <tr key={ipo.id} className="hover:bg-purple-50/40 transition-colors">
+                    <td className="py-3.5 px-4 font-bold text-gray-900">
+                      <Link href={`/ipos/${ipo.slug}`} className="hover:text-purple-700">
+                        {ipo.name}
+                      </Link>
+                      <span className="block text-[10px] text-gray-500 font-mono font-normal">{ipo.symbol} • {ipo.marketType}</span>
+                    </td>
+
+                    <td className="py-3.5 px-4 font-semibold">₹{ipo.priceHigh}</td>
+
+                    <td className="py-3.5 px-4 font-extrabold text-emerald-600">
+                      +₹{ipo.gmp?.value || 0} ({formatPercent(ipo.gmp?.percent)})
+                    </td>
+
+                    <td className="py-3.5 px-4 font-semibold text-gray-700">{formatINR(ipo.minInvestment)}</td>
+
+                    <td className="py-3.5 px-4 font-bold text-purple-700">
+                      {ipo.subscription?.overall ? `${ipo.subscription.overall}x` : 'N/A'}
+                    </td>
+
+                    <td className="py-3.5 px-4 font-extrabold text-emerald-600">
+                      {estProfit > 0 ? `+${formatINR(estProfit)}` : 'N/A'}
+                    </td>
+
+                    <td className="py-3.5 px-4 text-right">
+                      <Link
+                        href={`/ipos/${ipo.slug}`}
+                        className="px-3 py-1.5 bg-purple-700 text-white font-bold rounded-lg text-[11px] inline-flex items-center gap-1"
+                      >
+                        Details <ChevronRight className="w-3 h-3" />
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* 6. RECENT SUBSCRIPTION & LATEST ALLOTMENT (2-COLUMN) */}
+      <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left Column: Recent Subscription */}
+        <div className="bg-white border border-gray-200 rounded-2xl p-5 space-y-4">
+          <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+            <h3 className="font-extrabold text-sm text-gray-900 flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-purple-700" /> Recent IPO Subscription
+            </h3>
+            <Link href="/ipos" className="text-xs font-bold text-purple-700 hover:underline">
+              View all
+            </Link>
+          </div>
+
+          <div className="space-y-3 text-xs">
+            {formattedIPOs.slice(0, 4).map((ipo) => (
+              <div key={ipo.id} className="p-3 bg-gray-50 rounded-xl border border-gray-200 flex justify-between items-center">
+                <div>
+                  <h4 className="font-bold text-gray-900">{ipo.name}</h4>
+                  <p className="text-[11px] text-gray-500">{formatShortDate(ipo.openDate)} – {formatShortDate(ipo.closeDate)} • {ipo.marketType}</p>
+                </div>
+
+                <div className="text-right">
+                  <span className="text-[10px] text-gray-500 uppercase font-semibold block">Overall Bid</span>
+                  <span className="font-extrabold text-purple-700 text-sm">{ipo.subscription?.overall ? `${ipo.subscription.overall}x` : 'N/A'}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Right Column: Latest IPO Allotment */}
+        <div className="bg-white border border-gray-200 rounded-2xl p-5 space-y-4">
+          <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+            <h3 className="font-extrabold text-sm text-gray-900 flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-purple-700" /> Latest IPO Allotment
+            </h3>
+            <Link href="/my-ipos" className="text-xs font-bold text-purple-700 hover:underline">
+              Check All
+            </Link>
+          </div>
+
+          <div className="space-y-3 text-xs">
+            {formattedIPOs.slice(0, 4).map((ipo) => (
+              <div key={ipo.id} className="p-3 bg-purple-50/50 rounded-xl border border-purple-100 flex justify-between items-center">
+                <div>
+                  <h4 className="font-bold text-gray-900">{ipo.name}</h4>
+                  <p className="text-[11px] text-gray-500">Allotment: <strong className="text-purple-700">{formatShortDate(ipo.allotmentDate)}</strong></p>
+                </div>
+
+                <Link
+                  href="/my-ipos"
+                  className="px-3 py-1.5 bg-purple-700 hover:bg-purple-800 text-white font-bold rounded-lg text-[11px] transition-colors"
+                >
+                  Check Status
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* 7. RECENTLY CLOSED IPOs TABLE */}
+      <section className="bg-white border border-gray-200 rounded-2xl p-5 space-y-4">
+        <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+          <div>
+            <h2 className="font-extrabold text-base text-gray-900">Recently Closed IPOs</h2>
+            <p className="text-xs text-gray-500">Allotment and grey market listing performance tracking.</p>
+          </div>
+          <Link href="/ipos?status=CLOSED" className="text-xs font-bold text-purple-700 hover:underline flex items-center gap-1">
+            View all →
+          </Link>
+        </div>
+
+        <div className="hidden md:block overflow-x-auto">
+          <table className="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr className="border-b border-gray-200 bg-gray-50 text-gray-500 uppercase tracking-wider font-semibold">
+                <th className="py-3 px-4">Company</th>
+                <th className="py-3 px-4">Price</th>
+                <th className="py-3 px-4">GMP</th>
+                <th className="py-3 px-4">Min. Investment</th>
+                <th className="py-3 px-4">Allotment Date</th>
+                <th className="py-3 px-4">Est. Profit</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 text-gray-800">
+              {closedIPOsList.map((ipo) => {
+                const estProfit = ipo.gmp?.value ? ipo.gmp.value * ipo.lotSize : 0;
+                return (
+                  <tr key={ipo.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="py-3.5 px-4 font-bold text-gray-900">
+                      <Link href={`/ipos/${ipo.slug}`} className="hover:text-purple-700">
+                        {ipo.name}
+                      </Link>
+                      <span className="block text-[10px] text-gray-500 font-mono font-normal">{ipo.symbol}</span>
+                    </td>
+                    <td className="py-3.5 px-4 font-semibold">₹{ipo.priceHigh}</td>
+                    <td className="py-3.5 px-4 font-extrabold text-emerald-600">+₹{ipo.gmp?.value || 0}</td>
+                    <td className="py-3.5 px-4 font-semibold text-gray-700">{formatINR(ipo.minInvestment)}</td>
+                    <td className="py-3.5 px-4 font-semibold text-purple-700">{formatShortDate(ipo.allotmentDate)}</td>
+                    <td className="py-3.5 px-4 font-extrabold text-emerald-600">{estProfit > 0 ? `+${formatINR(estProfit)}` : 'N/A'}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* 8. FAMILY ALLOTMENT CTA BANNER */}
+      <section className="bg-gradient-to-r from-purple-800 to-indigo-900 rounded-2xl p-6 sm:p-8 text-white flex flex-col sm:flex-row items-center justify-between gap-6 shadow-xl">
+        <div className="space-y-2 text-center sm:text-left">
+          <span className="text-xs font-extrabold uppercase tracking-widest text-purple-300">MULTI-PAN ENGINE</span>
+          <h3 className="text-xl sm:text-2xl font-black">Track allotments for the whole family</h3>
+          <p className="text-xs sm:text-sm text-purple-100 max-w-xl">
+            Create a free account, securely save your PANs with native AES-256-GCM encryption, and check multiple IPO allotment results across Indian registrars in one place.
+          </p>
         </div>
 
         <Link
           href="/my-ipos"
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 text-xs font-bold hover:bg-indigo-600/30 transition-colors self-start sm:self-auto"
+          className="px-6 py-3.5 bg-white text-purple-900 hover:bg-purple-50 font-black rounded-xl text-xs sm:text-sm shrink-0 shadow-md transition-all"
         >
-          <ShieldCheck className="w-4 h-4 text-indigo-400" /> Track My Applications
+          Start Checking Allotments →
         </Link>
-      </div>
+      </section>
 
-      {/* 2. Three Compact Metric Cards */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="bg-[#111827] border border-[#1F293D] p-3.5 rounded-xl">
-          <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block">OPEN NOW</span>
-          <span className="text-xl sm:text-2xl font-extrabold text-emerald-400 mt-1 block">
-            {openIPOs.length} <span className="text-xs font-normal text-gray-400">IPOs</span>
-          </span>
+      {/* 9. WHY CHOOSE ALLOTX */}
+      <section className="space-y-4">
+        <div className="text-center space-y-1">
+          <h2 className="text-xl sm:text-2xl font-black text-gray-900">Why choose AllotX?</h2>
+          <p className="text-xs text-gray-500">Built specifically for ordinary retail IPO investors in India.</p>
         </div>
 
-        <div className="bg-[#111827] border border-[#1F293D] p-3.5 rounded-xl">
-          <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block">UPCOMING</span>
-          <span className="text-xl sm:text-2xl font-extrabold text-blue-400 mt-1 block">
-            {upcomingIPOs.length} <span className="text-xs font-normal text-gray-400">IPOs</span>
-          </span>
-        </div>
-
-        <div className="bg-[#111827] border border-[#1F293D] p-3.5 rounded-xl">
-          <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block">ALLOTMENTS TODAY</span>
-          <span className="text-xl sm:text-2xl font-extrabold text-indigo-400 mt-1 block">
-            {allotmentOutIPOs.length} <span className="text-xs font-normal text-gray-400">Declared</span>
-          </span>
-        </div>
-      </div>
-
-      {/* 3. Main 2-Column Section: GMP Movers + My IPOs & Next Event */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column (2/3): GMP Movers & Open IPOs */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* GMP MOVERS SECTION */}
-          <div className="bg-[#111827] border border-[#1F293D] rounded-xl p-4">
-            <div className="flex items-center justify-between mb-3 border-b border-[#1F293D] pb-3">
-              <h2 className="font-bold text-sm text-white flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-emerald-400" /> Top GMP Movers
-              </h2>
-              <Link href="/gmp" className="text-xs text-indigo-400 hover:underline font-semibold flex items-center gap-1">
-                View all GMP →
-              </Link>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white border border-gray-200 p-5 rounded-2xl space-y-2">
+            <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold">
+              <ShieldCheck className="w-5 h-5" />
             </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {gmpMovers.map((item) => (
-                <Link
-                  key={item.id}
-                  href={`/ipos/${item.slug}`}
-                  className="bg-[#090D16] p-3 rounded-lg border border-[#1F293D] hover:border-gray-600 transition-colors block"
-                >
-                  <span className="font-bold text-xs text-white block truncate">{item.name}</span>
-                  <div className="flex items-baseline gap-1 mt-1">
-                    <span className="text-sm font-extrabold text-emerald-400">
-                      +₹{item.gmp?.value}
-                    </span>
-                    <span className="text-[10px] font-bold text-emerald-400">
-                      ({formatPercent(item.gmp?.percent)})
-                    </span>
-                  </div>
-                  <div className="text-[10px] text-gray-400 mt-1 flex items-center gap-1">
-                    {item.gmp?.trend === 'RISING' ? (
-                      <span className="text-emerald-400 font-semibold flex items-center gap-0.5">
-                        <TrendingUp className="w-3 h-3" /> Rising
-                      </span>
-                    ) : (
-                      <span className="text-gray-400">Est. ₹{item.gmp?.estimatedListing}</span>
-                    )}
-                  </div>
-                </Link>
-              ))}
-            </div>
+            <h3 className="font-bold text-sm text-gray-900">Real-Time Registrar Querying</h3>
+            <p className="text-xs text-gray-500 leading-relaxed">
+              Check official allotment status through supported KFintech, Link Intime, Bigshare, and Cameo enquiry endpoints.
+            </p>
           </div>
 
-          {/* OPEN IPOs SECTION */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="font-bold text-base text-white flex items-center gap-2">
-                <Layers className="w-4 h-4 text-emerald-400" /> Open Now for Bidding
-              </h2>
-              <Link href="/ipos?status=OPEN" className="text-xs text-indigo-400 hover:underline font-semibold">
-                View All Open ({openIPOs.length})
-              </Link>
+          <div className="bg-white border border-gray-200 p-5 rounded-2xl space-y-2">
+            <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+              <UserCheck className="w-5 h-5" />
             </div>
-
-            {/* CONTEXTUAL EMPTY STATE FOR OPEN IPOS */}
-            {openIPOs.length === 0 ? (
-              <div className="bg-[#111827] border border-[#1F293D] rounded-xl p-5 text-gray-300 space-y-3">
-                <div className="flex items-center gap-2 text-amber-400 text-xs font-bold uppercase tracking-wider">
-                  <AlertCircle className="w-4 h-4" /> No Mainboard IPOs Open Right Now
-                </div>
-
-                {upcomingIPOs.length > 0 && (
-                  <div className="bg-[#090D16] p-4 rounded-lg border border-[#1F293D] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div>
-                      <span className="text-[11px] text-gray-400 uppercase font-semibold block">Next Upcoming IPO</span>
-                      <h4 className="font-bold text-base text-white mt-0.5">{upcomingIPOs[0].name}</h4>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        Opens: <strong className="text-gray-200">{formatShortDate(upcomingIPOs[0].openDate)}</strong> • GMP: <strong className="text-emerald-400">+₹{upcomingIPOs[0].gmp?.value || 0}</strong>
-                      </p>
-                    </div>
-
-                    <Link
-                      href={`/ipos/${upcomingIPOs[0].slug}`}
-                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold text-center transition-colors"
-                    >
-                      View Details
-                    </Link>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {openIPOs.map((ipo) => (
-                  <IPOCard key={ipo.id} ipo={ipo} />
-                ))}
-              </div>
-            )}
+            <h3 className="font-bold text-sm text-gray-900">Bulk PAN Portfolio Tracking</h3>
+            <p className="text-xs text-gray-500 leading-relaxed">
+              Store and check family applications in batches without manually re-entering PAN numbers every single time.
+            </p>
           </div>
 
-          {/* UPCOMING IPOs SECTION */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="font-bold text-base text-white flex items-center gap-2">
-                <Clock className="w-4 h-4 text-blue-400" /> Upcoming IPOs
-              </h2>
-              <Link href="/ipos?status=UPCOMING" className="text-xs text-indigo-400 hover:underline font-semibold">
-                View All Upcoming ({upcomingIPOs.length})
-              </Link>
+          <div className="bg-white border border-gray-200 p-5 rounded-2xl space-y-2">
+            <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
+              <TrendingUp className="w-5 h-5" />
             </div>
+            <h3 className="font-bold text-sm text-gray-900">GMP & Subscription Unified</h3>
+            <p className="text-xs text-gray-500 leading-relaxed">
+              Review live grey market premiums, category-wise subscription multipliers, and estimated listing profits together.
+            </p>
+          </div>
+        </div>
+      </section>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {upcomingIPOs.map((ipo) => (
-                <IPOCard key={ipo.id} ipo={ipo} />
-              ))}
-            </div>
+      {/* 10. MOBILE PWA CALLOUT */}
+      <section className="bg-gray-50 border border-gray-200 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold shrink-0">
+            <Smartphone className="w-6 h-6" />
+          </div>
+          <div>
+            <h4 className="font-bold text-sm text-gray-900">AllotX works beautifully on mobile</h4>
+            <p className="text-xs text-gray-500">Full PWA support. Add to Home Screen on iOS and Android for instant one-thumb access.</p>
           </div>
         </div>
 
-        {/* Right Column (1/3): My Applications & Next Event Widget */}
-        <div className="space-y-6">
-          {/* MY IPO APPLICATIONS SUMMARY */}
-          <div className="bg-[#111827] border border-[#1F293D] rounded-xl p-4 space-y-3">
-            <h3 className="font-bold text-sm text-white flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-indigo-400" /> My IPO Applications
-            </h3>
+        <Link
+          href="/my-ipos"
+          className="px-4 py-2 bg-purple-700 text-white font-bold text-xs rounded-lg shrink-0 hover:bg-purple-800 transition-colors"
+        >
+          Open AllotX App
+        </Link>
+      </section>
 
-            {userGroups.length > 0 ? (
-              userGroups.map((group: any) => {
-                const allotted = group.applicants.filter((a: any) => a.status === 'ALLOTTED').length;
-                const notAllotted = group.applicants.filter((a: any) => a.status === 'NOT_ALLOTTED').length;
-
-                return (
-                  <div key={group.id} className="bg-[#090D16] p-3 rounded-lg border border-[#1F293D] space-y-2">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h4 className="font-bold text-xs text-white">{group.ipo.name}</h4>
-                        <span className="text-[10px] text-gray-400">{group.applicants.length} Applications</span>
-                      </div>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                        {allotted} Allotted • {notAllotted} Non-Allotted
-                      </span>
-                    </div>
-
-                    <Link
-                      href="/my-ipos"
-                      className="text-xs font-semibold text-indigo-400 hover:underline flex items-center gap-1 pt-1 border-t border-[#1F293D]/60"
-                    >
-                      View Result Details <ArrowRight className="w-3 h-3" />
-                    </Link>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="text-xs text-gray-400 space-y-3 pt-1">
-                <p>Add your family or portfolio PANs once to check allotment status across registrars.</p>
-                <Link
-                  href="/my-ipos"
-                  className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg text-center block transition-colors"
-                >
-                  Start Tracking Applications
-                </Link>
-              </div>
-            )}
-          </div>
-
-          {/* NEXT IMPORTANT EVENT WIDGET */}
-          {nextEventIPO && (
-            <div className="bg-[#111827] border border-[#1F293D] rounded-xl p-4 space-y-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-400 block">NEXT MARKET EVENT</span>
-              <h4 className="font-bold text-sm text-white">{nextEventIPO.name}</h4>
-              <p className="text-xs text-gray-300">
-                Basis of Allotment: <strong className="text-emerald-400">{formatShortDate(nextEventIPO.allotmentDate)}</strong>
-              </p>
-              <Link
-                href={`/ipos/${nextEventIPO.slug}`}
-                className="text-xs font-semibold text-indigo-400 hover:underline inline-flex items-center gap-1 pt-2"
-              >
-                View Timeline Details <ArrowRight className="w-3 h-3" />
-              </Link>
-            </div>
-          )}
+      {/* 11. FAQ ACCORDION SECTION */}
+      <section className="bg-white border border-gray-200 rounded-2xl p-6 space-y-4">
+        <div className="space-y-1">
+          <h2 className="text-xl font-black text-gray-900 flex items-center gap-2">
+            <HelpCircle className="w-5 h-5 text-purple-700" /> Frequently Asked Questions
+          </h2>
+          <p className="text-xs text-gray-500">Retail investor guide to IPO allotments, GMP, and subscription data.</p>
         </div>
-      </div>
+
+        <div className="divide-y divide-gray-100 text-xs">
+          <details className="py-3 group cursor-pointer">
+            <summary className="font-bold text-gray-900 flex justify-between items-center group-hover:text-purple-700">
+              How do I check my IPO allotment status?
+              <ChevronRight className="w-4 h-4 text-gray-400 group-open:rotate-90 transition-transform" />
+            </summary>
+            <p className="text-gray-600 mt-2 leading-relaxed">
+              Navigate to "Check IPO Allotments", add your Applicant Name and 10-character Income Tax PAN number. AllotX queries the respective official registrar enquiry endpoint (KFintech, Link Intime, etc.) and displays whether shares were allotted to your application.
+            </p>
+          </details>
+
+          <details className="py-3 group cursor-pointer">
+            <summary className="font-bold text-gray-900 flex justify-between items-center group-hover:text-purple-700">
+              What is IPO GMP (Grey Market Premium)?
+              <ChevronRight className="w-4 h-4 text-gray-400 group-open:rotate-90 transition-transform" />
+            </summary>
+            <p className="text-gray-600 mt-2 leading-relaxed">
+              Grey Market Premium (GMP) is the unofficial price premium at which IPO shares trade in the OTC market before official listing on the BSE/NSE. It provides an estimated indicator of listing gain sentiment.
+            </p>
+          </details>
+
+          <details className="py-3 group cursor-pointer">
+            <summary className="font-bold text-gray-900 flex justify-between items-center group-hover:text-purple-700">
+              Is IPO GMP guaranteed?
+              <ChevronRight className="w-4 h-4 text-gray-400 group-open:rotate-90 transition-transform" />
+            </summary>
+            <p className="text-gray-600 mt-2 leading-relaxed">
+              No. GMP is strictly unofficial market sentiment and does not guarantee actual stock exchange listing price or future performance.
+            </p>
+          </details>
+
+          <details className="py-3 group cursor-pointer">
+            <summary className="font-bold text-gray-900 flex justify-between items-center group-hover:text-purple-700">
+              Can I track multiple family PAN applications together?
+              <ChevronRight className="w-4 h-4 text-gray-400 group-open:rotate-90 transition-transform" />
+            </summary>
+            <p className="text-gray-600 mt-2 leading-relaxed">
+              Yes! AllotX allows you to create application groups for family members and run batch checks ("Refresh All") across all saved PANs in a single click.
+            </p>
+          </details>
+        </div>
+      </section>
     </div>
   );
 }
