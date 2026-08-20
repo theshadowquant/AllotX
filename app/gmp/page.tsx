@@ -1,7 +1,7 @@
 import React from 'react';
 import { db } from '@/lib/db';
 import Link from 'next/link';
-import { TrendingUp, TrendingDown, Minus, Info, ArrowUpRight } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, Info, ArrowUpRight, Clock, ShieldCheck } from 'lucide-react';
 import { formatINR, formatPercent } from '@/lib/utils/formatters';
 
 export const revalidate = 0;
@@ -24,6 +24,8 @@ export default async function GMPTrackerPage({ searchParams }: GMPPageProps) {
   }
 
   let ipos: any[] = [];
+  let dataSource: any = null;
+
   try {
     ipos = await db.iPO.findMany({
       where: whereClause,
@@ -34,6 +36,10 @@ export default async function GMPTrackerPage({ searchParams }: GMPPageProps) {
         },
       },
       orderBy: { openDate: 'desc' },
+    });
+
+    dataSource = await db.dataSource.findUnique({
+      where: { code: 'GMP_CONSENSUS_FEED' },
     });
   } catch (err) {
     console.error('Error querying GMP page data:', err);
@@ -64,6 +70,7 @@ export default async function GMPTrackerPage({ searchParams }: GMPPageProps) {
       gmpPercent,
       estimatedListing,
       trend: latest?.trend || 'STABLE',
+      recordedAt: latest?.recordedAt || null,
     };
   });
 
@@ -78,15 +85,24 @@ export default async function GMPTrackerPage({ searchParams }: GMPPageProps) {
     gmpList.sort((a, b) => b.gmpPercent - a.gmpPercent);
   }
 
+  const lastUpdateStr = dataSource?.lastSuccessfulUpdate
+    ? `${Math.max(1, Math.round((Date.now() - new Date(dataSource.lastSuccessfulUpdate).getTime()) / 60000))} minutes ago`
+    : 'Recently';
+
   return (
     <div className="space-y-6">
-      {/* Header & Tabs */}
+      {/* Header & Freshness Badge */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-200 pb-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-black text-gray-900 flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-purple-700" /> Live IPO Grey Market Premium (GMP)
-          </h1>
-          <p className="text-xs text-gray-500 mt-0.5">
+          <div className="flex items-center gap-2 mb-1">
+            <h1 className="text-xl sm:text-2xl font-black text-gray-900 flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-purple-700" /> Live IPO Grey Market Premium (GMP)
+            </h1>
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+              <Clock className="w-3 h-3 text-emerald-600" /> Updated {lastUpdateStr}
+            </span>
+          </div>
+          <p className="text-xs text-gray-500">
             Track unofficial grey market premium rates, percentage listing gains, and price estimates.
           </p>
         </div>

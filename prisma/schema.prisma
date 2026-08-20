@@ -53,6 +53,20 @@ enum RegistrarHealth {
   UNAVAILABLE
 }
 
+enum SourceStatus {
+  HEALTHY
+  STALE
+  FAILED
+  DISABLED
+}
+
+enum IngestionTarget {
+  IPO_DISCOVERY
+  GMP
+  SUBSCRIPTION
+  ALLOTMENT_DERIVATION
+}
+
 model Registrar {
   id           String          @id @default(uuid())
   code         String          @unique // e.g. MOCK, KFINTECH, LINK_INTIME, BIGSHARE, CAMEO
@@ -91,12 +105,13 @@ model IPO {
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
-  registrar    Registrar              @relation(fields: [registrarId], references: [id])
-  gmpHistory   IPOGMPHistory[]
-  subscription IPOSubscription[]
-  groups       IPOApplicationGroup[]
-  watchlists   Watchlist[]
+  registrar       Registrar              @relation(fields: [registrarId], references: [id])
+  gmpHistory      IPOGMPHistory[]
+  subscription    IPOSubscription[]
+  groups          IPOApplicationGroup[]
+  watchlists      Watchlist[]
   allotmentChecks AllotmentCheck[]
+  events          IPOEvent[]
 
   @@index([status])
   @@index([slug])
@@ -134,6 +149,52 @@ model IPOSubscription {
   ipo IPO @relation(fields: [ipoId], references: [id], onDelete: Cascade)
 
   @@index([ipoId, recordedAt])
+}
+
+model IPOEvent {
+  id          String   @id @default(uuid())
+  ipoId       String
+  eventType   String   // e.g. IPO_OPEN, IPO_CLOSE, ALLOTMENT, LISTING
+  eventDate   DateTime
+  description String?
+  createdAt   DateTime @default(now())
+
+  ipo IPO @relation(fields: [ipoId], references: [id], onDelete: Cascade)
+
+  @@index([ipoId, eventDate])
+}
+
+model DataSource {
+  id                    String       @id @default(uuid())
+  code                  String       @unique // e.g. NSE, BSE, CHITTORGARH, IPOTRACKER, MOCK_PROVIDER
+  name                  String
+  status                SourceStatus @default(HEALTHY)
+  lastSuccessfulUpdate  DateTime?
+  lastAttempt           DateTime?
+  errorMessage          String?
+  refreshIntervalMs     Int          @default(900000) // 15 mins default
+  active                Boolean      @default(true)
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  logs DataUpdateLog[]
+}
+
+model DataUpdateLog {
+  id              String          @id @default(uuid())
+  sourceCode      String
+  targetType      IngestionTarget @default(GMP)
+  status          String          // SUCCESS, FAILED, PARTIAL
+  recordsFetched  Int             @default(0)
+  recordsAccepted Int             @default(0)
+  recordsRejected Int             @default(0)
+  durationMs      Int             @default(0)
+  errorMessage    String?
+  createdAt       DateTime        @default(now())
+
+  source DataSource @relation(fields: [sourceCode], references: [code], onDelete: Cascade)
+
+  @@index([sourceCode, createdAt])
 }
 
 model IPOApplicationGroup {
