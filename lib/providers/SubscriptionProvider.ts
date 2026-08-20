@@ -1,5 +1,11 @@
 import { SubscriptionProvider, ProviderResponse, RawSubscriptionMetrics } from './types';
 
+function parseSubscriptionValue(val: any): number | null {
+  if (val === undefined || val === null || val === '') return null;
+  const parsed = parseFloat(val);
+  return isNaN(parsed) ? null : parsed;
+}
+
 export class ExchangeSubscriptionProvider implements SubscriptionProvider {
   readonly code = 'SUBSCRIPTION_EXCHANGE_FEED';
   readonly name = 'NSE Category Subscription Feed';
@@ -7,7 +13,6 @@ export class ExchangeSubscriptionProvider implements SubscriptionProvider {
   async fetchSubscriptions(): Promise<ProviderResponse<RawSubscriptionMetrics>> {
     const now = new Date();
     try {
-      // Live fetch against exchange bidding endpoints
       const res = await fetch('https://www.nseindia.com/api/ipo-bid-details', {
         headers: {
           'User-Agent':
@@ -26,19 +31,28 @@ export class ExchangeSubscriptionProvider implements SubscriptionProvider {
         throw new Error('Invalid subscription response format from exchange feed');
       }
 
-      const items: RawSubscriptionMetrics[] = json.map((item: any) => ({
-        symbolOrName: item.symbol || item.companyName || 'IPO',
-        retail: parseFloat(item.retailSubscription || '0'),
-        nii: parseFloat(item.niiSubscription || '0'),
-        qib: parseFloat(item.qibSubscription || '0'),
-        employee: item.employeeSubscription ? parseFloat(item.employeeSubscription) : undefined,
-        shareholder: item.shareholderSubscription ? parseFloat(item.shareholderSubscription) : undefined,
-        overall: parseFloat(item.overallSubscription || '0'),
-        snapshotDay: item.dayNumber ? `Day ${item.dayNumber}` : 'Day 1',
-        snapshotTime: item.snapshotTime || '05:00 PM',
-        source: 'NSE_OFFICIAL_FEED',
-        fetchedAt: now,
-      }));
+      const items: RawSubscriptionMetrics[] = json.map((item: any) => {
+        const retail = parseSubscriptionValue(item.retailSubscription);
+        const nii = parseSubscriptionValue(item.niiSubscription);
+        const qib = parseSubscriptionValue(item.qibSubscription);
+        const overall = parseSubscriptionValue(item.overallSubscription);
+        const isAvailable = overall !== null || retail !== null;
+
+        return {
+          symbolOrName: item.symbol || item.companyName || 'IPO',
+          retail,
+          nii,
+          qib,
+          employee: parseSubscriptionValue(item.employeeSubscription),
+          shareholder: parseSubscriptionValue(item.shareholderSubscription),
+          overall,
+          status: isAvailable ? 'AVAILABLE' : 'UNAVAILABLE',
+          snapshotDay: item.dayNumber ? `Day ${item.dayNumber}` : undefined,
+          snapshotTime: item.snapshotTime || undefined,
+          source: 'NSE India Feed',
+          fetchedAt: now,
+        };
+      });
 
       return {
         success: true,

@@ -74,7 +74,6 @@ export async function runAutomatedDataIngestion(): Promise<IngestionExecutionSum
           continue;
         }
 
-        // Find associated registrar or fallback to default
         let registrar = await db.registrar.findUnique({
           where: { code: item.registrarCode },
         });
@@ -94,7 +93,9 @@ export async function runAutomatedDataIngestion(): Promise<IngestionExecutionSum
 
         const slug = item.slug || `${item.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-ipo`;
 
-        // Upsert IPO idempotently
+        const safeAllotmentDate = item.allotmentDate || item.closeDate;
+        const safeListingDate = item.listingDate || item.closeDate;
+
         await db.iPO.upsert({
           where: { slug },
           update: {
@@ -106,8 +107,8 @@ export async function runAutomatedDataIngestion(): Promise<IngestionExecutionSum
             issueSize: item.issueSize || '₹1,000 Cr',
             openDate: item.openDate,
             closeDate: item.closeDate,
-            allotmentDate: item.allotmentDate,
-            listingDate: item.listingDate,
+            allotmentDate: safeAllotmentDate,
+            listingDate: safeListingDate,
           },
           create: {
             name: item.name,
@@ -125,8 +126,8 @@ export async function runAutomatedDataIngestion(): Promise<IngestionExecutionSum
             faceValue: item.faceValue || 10,
             openDate: item.openDate,
             closeDate: item.closeDate,
-            allotmentDate: item.allotmentDate,
-            listingDate: item.listingDate,
+            allotmentDate: safeAllotmentDate,
+            listingDate: safeListingDate,
             registrarId: registrar.id,
           },
         });
@@ -183,7 +184,10 @@ export async function runAutomatedDataIngestion(): Promise<IngestionExecutionSum
 
     if (gmpRes.success) {
       for (const quote of gmpRes.data) {
-        // Match IPO by symbol or name
+        if (quote.gmp === null || quote.status === 'UNAVAILABLE') {
+          continue;
+        }
+
         const ipo = await db.iPO.findFirst({
           where: {
             OR: [
@@ -271,6 +275,10 @@ export async function runAutomatedDataIngestion(): Promise<IngestionExecutionSum
 
     if (subRes.success) {
       for (const item of subRes.data) {
+        if (item.overall === null || item.status === 'UNAVAILABLE') {
+          continue;
+        }
+
         const ipo = await db.iPO.findFirst({
           where: {
             OR: [

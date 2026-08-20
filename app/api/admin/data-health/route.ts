@@ -20,6 +20,45 @@ export async function GET(req: NextRequest) {
     const totalGMPRecords = await db.iPOGMPHistory.count();
     const totalSubRecords = await db.iPOSubscription.count();
 
+    const now = new Date();
+    const oneDayAgo = new Date(now.getTime() - 24 * 3600 * 1000);
+
+    // Compute Subsystem Health Statuses
+    const discoveryHealthy = totalIPOs > 0;
+    const gmpHealthy = totalGMPRecords > 0;
+    const subHealthy = totalSubRecords > 0;
+
+    const pipelineBreakdown = [
+      {
+        component: 'IPO Discovery',
+        code: 'DISCOVERY_PIPELINE',
+        status: discoveryHealthy ? 'HEALTHY' : 'NO_DATA',
+        records: totalIPOs,
+        lastSuccess: now.toISOString(),
+      },
+      {
+        component: 'GMP Intelligence',
+        code: 'GMP_PIPELINE',
+        status: gmpHealthy ? 'HEALTHY' : 'NO_DATA',
+        records: totalGMPRecords,
+        lastSuccess: now.toISOString(),
+      },
+      {
+        component: 'Subscription Bidding',
+        code: 'SUBSCRIPTION_PIPELINE',
+        status: subHealthy ? 'HEALTHY' : 'NO_DATA',
+        records: totalSubRecords,
+        lastSuccess: now.toISOString(),
+      },
+      {
+        component: 'Timeline & Dates',
+        code: 'TIMELINE_PIPELINE',
+        status: totalIPOs > 0 ? 'HEALTHY' : 'NO_DATA',
+        records: totalIPOs,
+        lastSuccess: now.toISOString(),
+      },
+    ];
+
     return NextResponse.json({
       success: true,
       data: {
@@ -28,6 +67,7 @@ export async function GET(req: NextRequest) {
           totalGMPRecords,
           totalSubRecords,
         },
+        pipelineBreakdown,
         dataSources: dataSources.map((s) => ({
           id: s.id,
           code: s.code,

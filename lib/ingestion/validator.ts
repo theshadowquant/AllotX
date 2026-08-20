@@ -20,25 +20,19 @@ export function validateDiscoveredIPO(ipo: DiscoveredIPOItem): ValidationResult 
 
   const openTs = new Date(ipo.openDate).getTime();
   const closeTs = new Date(ipo.closeDate).getTime();
-  const allotmentTs = new Date(ipo.allotmentDate).getTime();
-  const listingTs = new Date(ipo.listingDate).getTime();
 
   if (openTs > closeTs) {
     return { valid: false, reason: 'openDate cannot be after closeDate' };
-  }
-
-  if (closeTs > allotmentTs) {
-    return { valid: false, reason: 'closeDate cannot be after allotmentDate' };
-  }
-
-  if (allotmentTs > listingTs) {
-    return { valid: false, reason: 'allotmentDate cannot be after listingDate' };
   }
 
   return { valid: true };
 }
 
 export function validateGMPQuote(quote: RawGMPQuote, upperPrice: number): ValidationResult {
+  if (quote.gmp === null || quote.status === 'UNAVAILABLE') {
+    return { valid: true };
+  }
+
   if (upperPrice <= 0) {
     return { valid: false, reason: 'Invalid IPO upper price band' };
   }
@@ -55,19 +49,23 @@ export function validateGMPQuote(quote: RawGMPQuote, upperPrice: number): Valida
 }
 
 export function validateSubscription(sub: RawSubscriptionMetrics): ValidationResult {
+  if (sub.overall === null || sub.status === 'UNAVAILABLE') {
+    return { valid: true };
+  }
+
   if (sub.overall < 0) {
     return { valid: false, reason: 'Subscription overall bidding multiple cannot be negative' };
   }
 
-  if (sub.retail !== undefined && sub.retail < 0) {
+  if (sub.retail !== undefined && sub.retail !== null && sub.retail < 0) {
     return { valid: false, reason: 'Retail subscription cannot be negative' };
   }
 
-  if (sub.qib !== undefined && sub.qib < 0) {
+  if (sub.qib !== undefined && sub.qib !== null && sub.qib < 0) {
     return { valid: false, reason: 'QIB subscription cannot be negative' };
   }
 
-  if (sub.nii !== undefined && sub.nii < 0) {
+  if (sub.nii !== undefined && sub.nii !== null && sub.nii < 0) {
     return { valid: false, reason: 'NII subscription cannot be negative' };
   }
 

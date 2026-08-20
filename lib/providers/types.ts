@@ -14,19 +14,20 @@ export interface DiscoveredIPOItem {
   faceValue?: number;
   openDate: Date;
   closeDate: Date;
-  allotmentDate: Date;
-  refundDate?: Date;
-  dematDate?: Date;
-  listingDate: Date;
-  registrarCode: string; // e.g. KFINTECH, LINK_INTIME, BIGSHARE, CAMEO
+  allotmentDate?: Date | null;
+  refundDate?: Date | null;
+  dematDate?: Date | null;
+  listingDate?: Date | null;
+  registrarCode: string; // e.g. KFINTECH, LINK_INTIME, BIGSHARE, CAMEO, UNKNOWN
 }
 
 export interface RawGMPQuote {
   symbolOrName: string;
-  gmp: number;
-  estimatedListing?: number;
-  gmpPercent?: number;
-  trend?: 'RISING' | 'FALLING' | 'STABLE' | 'VOLATILE' | 'NO_DATA';
+  gmp: number | null;
+  status: 'AVAILABLE' | 'UNAVAILABLE';
+  estimatedListing?: number | null;
+  gmpPercent?: number | null;
+  trend?: 'RISING' | 'FALLING' | 'STABLE' | 'VOLATILE' | 'NO_DATA' | 'UNAVAILABLE';
   source: string;
   reliabilityWeight: number; // 0.0 to 1.0
   fetchedAt: Date;
@@ -34,12 +35,13 @@ export interface RawGMPQuote {
 
 export interface RawSubscriptionMetrics {
   symbolOrName: string;
-  retail?: number;
-  nii?: number;
-  qib?: number;
-  employee?: number;
-  shareholder?: number;
-  overall: number;
+  retail?: number | null;
+  nii?: number | null;
+  qib?: number | null;
+  employee?: number | null;
+  shareholder?: number | null;
+  overall: number | null;
+  status: 'AVAILABLE' | 'UNAVAILABLE';
   snapshotDay?: string;
   snapshotTime?: string;
   source: string;

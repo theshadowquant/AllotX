@@ -24,13 +24,21 @@ export class ConsensusGMPProvider implements GMPProvider {
         throw new Error('Unexpected GMP feed response structure');
       }
 
-      const quotes: RawGMPQuote[] = json.map((item: any) => ({
-        symbolOrName: (item.name || item.company || '').toUpperCase().trim(),
-        gmp: parseFloat(item.gmp || item.premium || '0'),
-        reliabilityWeight: 0.9,
-        source: 'CHITTORGARH_FEED',
-        fetchedAt: now,
-      }));
+      const quotes: RawGMPQuote[] = json.map((item: any) => {
+        const rawVal = item.gmp !== undefined && item.gmp !== null ? item.gmp : item.premium;
+        const parsed = rawVal !== undefined && rawVal !== null && rawVal !== '' ? parseFloat(rawVal) : NaN;
+        const isAvailable = !isNaN(parsed);
+
+        return {
+          symbolOrName: (item.name || item.company || '').toUpperCase().trim(),
+          gmp: isAvailable ? parsed : null,
+          status: isAvailable ? 'AVAILABLE' : 'UNAVAILABLE',
+          trend: isAvailable ? 'STABLE' : 'UNAVAILABLE',
+          reliabilityWeight: 0.9,
+          source: 'Chittorgarh OTC Feed',
+          fetchedAt: now,
+        };
+      });
 
       return {
         success: true,
@@ -75,13 +83,21 @@ export class FallbackGMPProvider implements GMPProvider {
         throw new Error('Unexpected fallback GMP response format');
       }
 
-      const quotes: RawGMPQuote[] = json.map((item: any) => ({
-        symbolOrName: (item.title || item.name || '').toUpperCase().trim(),
-        gmp: parseFloat(item.gmp || '0'),
-        reliabilityWeight: 0.75,
-        source: 'IPOWATCH_FEED',
-        fetchedAt: now,
-      }));
+      const quotes: RawGMPQuote[] = json.map((item: any) => {
+        const rawVal = item.gmp;
+        const parsed = rawVal !== undefined && rawVal !== null && rawVal !== '' ? parseFloat(rawVal) : NaN;
+        const isAvailable = !isNaN(parsed);
+
+        return {
+          symbolOrName: (item.title || item.name || '').toUpperCase().trim(),
+          gmp: isAvailable ? parsed : null,
+          status: isAvailable ? 'AVAILABLE' : 'UNAVAILABLE',
+          trend: isAvailable ? 'STABLE' : 'UNAVAILABLE',
+          reliabilityWeight: 0.75,
+          source: 'IPOWatch OTC Feed',
+          fetchedAt: now,
+        };
+      });
 
       return {
         success: true,

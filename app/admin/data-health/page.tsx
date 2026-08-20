@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Database, RefreshCw, CheckCircle2, AlertTriangle, XCircle, Clock, ShieldCheck, Activity } from 'lucide-react';
+import { Database, RefreshCw, CheckCircle2, AlertTriangle, XCircle, Clock, ShieldCheck, Activity, Layers } from 'lucide-react';
 
 interface DataSourceItem {
   id: string;
@@ -28,8 +28,17 @@ interface DataUpdateLogItem {
   createdAt: string;
 }
 
+interface PipelineComponent {
+  component: string;
+  code: string;
+  status: 'HEALTHY' | 'STALE' | 'FAILED' | 'NO_DATA';
+  records: number;
+  lastSuccess: string;
+}
+
 export default function AdminDataHealthPage() {
   const [dataSources, setDataSources] = useState<DataSourceItem[]>([]);
+  const [pipelineBreakdown, setPipelineBreakdown] = useState<PipelineComponent[]>([]);
   const [recentLogs, setRecentLogs] = useState<DataUpdateLogItem[]>([]);
   const [stats, setStats] = useState({ totalIPOs: 0, totalGMPRecords: 0, totalSubRecords: 0 });
   const [isLoading, setIsLoading] = useState(true);
@@ -41,6 +50,7 @@ export default function AdminDataHealthPage() {
       const json = await res.json();
       if (json.success) {
         setDataSources(json.data.dataSources);
+        setPipelineBreakdown(json.data.pipelineBreakdown || []);
         setRecentLogs(json.data.recentLogs);
         setStats(json.data.stats);
       }
@@ -94,6 +104,12 @@ export default function AdminDataHealthPage() {
             <XCircle className="w-3.5 h-3.5 text-rose-600" /> FAILED
           </span>
         );
+      case 'NO_DATA':
+        return (
+          <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-700 border border-gray-200">
+            <AlertTriangle className="w-3.5 h-3.5 text-gray-500" /> NO_DATA
+          </span>
+        );
       default:
         return (
           <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-700 border border-gray-200">
@@ -143,6 +159,34 @@ export default function AdminDataHealthPage() {
           <span className="text-2xl font-black text-purple-700 mt-1 block">{stats.totalSubRecords}</span>
         </div>
       </div>
+
+      {/* Subsystem Pipeline Breakdown */}
+      {pipelineBreakdown.length > 0 && (
+        <div className="bg-white border border-gray-200 rounded-2xl p-5 space-y-4 shadow-sm">
+          <h2 className="font-extrabold text-base text-gray-900 flex items-center gap-2 border-b border-gray-100 pb-3">
+            <Layers className="w-4 h-4 text-purple-700" /> Pipeline Component Status Breakdown
+          </h2>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {pipelineBreakdown.map((item) => (
+              <div key={item.code} className="bg-gray-50 border border-gray-200 p-4 rounded-xl space-y-2">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="font-bold text-sm text-gray-900">{item.component}</h3>
+                    <span className="font-mono text-[10px] text-gray-400">{item.code}</span>
+                  </div>
+                  {renderStatusBadge(item.status)}
+                </div>
+
+                <div className="text-xs text-gray-500 pt-2 border-t border-gray-200 flex justify-between">
+                  <span>Records:</span>
+                  <strong className="text-gray-900">{item.records}</strong>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Data Sources Health Section */}
       <div className="bg-white border border-gray-200 rounded-2xl p-5 space-y-4 shadow-sm">

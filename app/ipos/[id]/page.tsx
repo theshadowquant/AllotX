@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
 import { GMPChart } from '@/components/ipo/GMPChart';
 import { SubscriptionCard } from '@/components/ipo/SubscriptionCard';
-import { Calendar, Building2, ExternalLink, ShieldCheck, Info } from 'lucide-react';
+import { Calendar, Building2, ExternalLink, ShieldCheck, Info, Clock, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { formatINR, formatPercent, formatShortDate, formatEventDate } from '@/lib/utils/formatters';
 
@@ -51,10 +51,11 @@ export default async function IPODetailPage({ params }: DetailPageProps) {
   const latestGMP = ipo.gmpHistory.length > 0 ? ipo.gmpHistory[ipo.gmpHistory.length - 1] : null;
   const latestSub = ipo.subscription.length > 0 ? ipo.subscription[0] : null;
 
-  const gmpVal = latestGMP?.gmp ?? 0;
+  const isGMPAvailable = latestGMP !== null && latestGMP.gmp !== null && latestGMP.gmp !== undefined;
+  const gmpVal = isGMPAvailable ? latestGMP.gmp : null;
   const upperPrice = ipo.priceHigh;
-  const estimatedListing = Math.round(upperPrice + gmpVal);
-  const gmpPercent = parseFloat(((gmpVal / upperPrice) * 100).toFixed(2));
+  const indicativeListing = isGMPAvailable ? Math.round(upperPrice + (gmpVal || 0)) : null;
+  const gmpPercent = isGMPAvailable ? parseFloat((((gmpVal || 0) / upperPrice) * 100).toFixed(2)) : null;
 
   const gmpChartData = ipo.gmpHistory.map((item: any) => ({
     date: new Date(item.recordedAt).toLocaleDateString('en-IN', {
@@ -95,25 +96,46 @@ export default async function IPODetailPage({ params }: DetailPageProps) {
           </div>
         </div>
 
-        {/* 2. Prominent GMP Hero Banner */}
+        {/* 2. Prominent Indicative Listing Hero Banner */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {/* Live GMP */}
           <div className="bg-purple-50/70 p-3.5 rounded-xl border border-purple-100">
             <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider block">Live GMP</span>
             <div className="flex items-baseline gap-1.5 mt-0.5">
-              <span className="text-xl font-black text-emerald-600">
-                {gmpVal > 0 ? `+₹${gmpVal}` : `₹${gmpVal}`}
-              </span>
-              <span className="text-xs font-bold text-emerald-600">
-                ({formatPercent(gmpPercent)})
-              </span>
+              {isGMPAvailable ? (
+                <>
+                  <span className="text-xl font-black text-emerald-600">
+                    {gmpVal! > 0 ? `+₹${gmpVal}` : `₹${gmpVal}`}
+                  </span>
+                  <span className="text-xs font-bold text-emerald-600">
+                    ({formatPercent(gmpPercent)})
+                  </span>
+                </>
+              ) : (
+                <span className="text-sm font-bold text-amber-600 flex items-center gap-1">
+                  <AlertTriangle className="w-3.5 h-3.5" /> Unavailable
+                </span>
+              )}
             </div>
-            <span className="text-[10px] text-gray-500 mt-0.5 block">Unofficial market sentiment</span>
+            <span className="text-[10px] text-gray-500 mt-0.5 block truncate">
+              {isGMPAvailable ? `Source: ${latestGMP.source || 'OTC Feed'}` : 'No verified OTC snapshot'}
+            </span>
           </div>
 
+          {/* Indicative Listing Price */}
           <div className="bg-purple-50/70 p-3.5 rounded-xl border border-purple-100">
-            <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider block">Estimated Listing</span>
-            <span className="text-xl font-black text-gray-900 mt-0.5 block">{formatINR(estimatedListing)}</span>
-            <span className="text-[10px] text-gray-500 mt-0.5 block">Upper Price (₹{upperPrice}) + GMP</span>
+            <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider block">Indicative Listing Price</span>
+            {indicativeListing ? (
+              <>
+                <span className="text-xl font-black text-gray-900 mt-0.5 block">{formatINR(indicativeListing)}</span>
+                <span className="text-[10px] text-gray-500 mt-0.5 block">Upper Price (₹{upperPrice}) + GMP</span>
+              </>
+            ) : (
+              <>
+                <span className="text-sm font-bold text-gray-500 mt-1 block">Unavailable</span>
+                <span className="text-[10px] text-gray-400 mt-0.5 block">Awaiting OTC market quote</span>
+              </>
+            )}
           </div>
 
           <div className="bg-gray-50 p-3.5 rounded-xl border border-gray-200">
@@ -133,7 +155,7 @@ export default async function IPODetailPage({ params }: DetailPageProps) {
       {/* 3. Grid: GMP Chart & Subscriptions */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          <GMPChart data={gmpChartData} upperPrice={upperPrice} currentGMP={gmpVal} />
+          <GMPChart data={gmpChartData} upperPrice={upperPrice} currentGMP={gmpVal || 0} />
 
           {/* Issue Details Grid */}
           <div className="bg-white border border-gray-200 p-5 rounded-2xl space-y-3 shadow-sm">
@@ -191,19 +213,27 @@ export default async function IPODetailPage({ params }: DetailPageProps) {
               </div>
               <div className="flex justify-between py-1 border-b border-gray-100 bg-purple-50 px-2 rounded-lg">
                 <span className="text-purple-700 font-semibold">Basis of Allotment</span>
-                <span className="font-extrabold text-purple-700">{formatEventDate(ipo.allotmentDate)}</span>
+                <span className="font-extrabold text-purple-700">
+                  {ipo.allotmentDate ? formatEventDate(ipo.allotmentDate) : 'TBD (Unconfirmed)'}
+                </span>
               </div>
               <div className="flex justify-between py-1 border-b border-gray-100">
                 <span className="text-gray-500">Refunds / Unblocking</span>
-                <span className="font-semibold text-gray-700">{formatEventDate(ipo.refundDate)}</span>
+                <span className="font-semibold text-gray-700">
+                  {ipo.refundDate ? formatEventDate(ipo.refundDate) : 'TBD'}
+                </span>
               </div>
               <div className="flex justify-between py-1 border-b border-gray-100">
                 <span className="text-gray-500">Demat Credit</span>
-                <span className="font-semibold text-gray-700">{formatEventDate(ipo.dematDate)}</span>
+                <span className="font-semibold text-gray-700">
+                  {ipo.dematDate ? formatEventDate(ipo.dematDate) : 'TBD'}
+                </span>
               </div>
               <div className="flex justify-between py-1">
                 <span className="text-gray-500">Listing Date</span>
-                <span className="font-bold text-emerald-600">{formatEventDate(ipo.listingDate)}</span>
+                <span className="font-bold text-emerald-600">
+                  {ipo.listingDate ? formatEventDate(ipo.listingDate) : 'TBD (Unconfirmed)'}
+                </span>
               </div>
             </div>
 
