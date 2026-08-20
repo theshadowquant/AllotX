@@ -4,9 +4,9 @@ import { Header } from '@/components/common/Header';
 import { BottomNavigation } from '@/components/common/BottomNavigation';
 
 export const metadata: Metadata = {
-  title: 'AllotX — Indian IPO Intelligence & Allotment Platform',
+  title: 'AllotX — Indian IPO Intelligence Platform',
   description:
-    'IPO intelligence, simplified. Track live & historical GMP, subscription statistics, IPO dates, and check multi-PAN allotment status across Indian registrars.',
+    'IPO intelligence, simplified. Track live & historical GMP, subscription statistics, IPO dates, and manage multi-PAN allotment status across Indian registrars.',
   manifest: '/manifest.json',
   appleWebApp: {
     title: 'AllotX',
@@ -36,16 +36,18 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="bg-background text-gray-100 min-h-screen flex flex-col antialiased selection:bg-indigo-500 selection:text-white">
+      <body className="bg-[#090D16] text-gray-100 min-h-screen flex flex-col antialiased selection:bg-indigo-600 selection:text-white">
         <Header />
-        <main className="flex-1 pb-20 sm:pb-12 max-w-7xl w-full mx-auto px-4 sm:px-6 pt-6">
+        <main className="flex-1 pb-16 md:pb-8 max-w-[1400px] w-full mx-auto px-4 sm:px-6 pt-5">
           {children}
         </main>
-        <footer className="hidden sm:block border-t border-border/80 py-6 text-center text-xs text-gray-500 max-w-7xl mx-auto px-6">
-          <p>AllotX © 2026 — IPO intelligence, simplified.</p>
-          <p className="mt-1 text-[11px] text-gray-600">
-            IPO information provided for informational purposes only. GMP is unofficial sentiment and does not guarantee listing performance.
-          </p>
+        <footer className="hidden md:block border-t border-[#1F293D] py-4 text-center text-xs text-gray-500 max-w-[1400px] mx-auto px-6">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
+            <span>AllotX © 2026 — IPO intelligence, simplified.</span>
+            <span className="text-[11px] text-gray-600">
+              IPO information is for informational purposes only. GMP is unofficial market sentiment and does not guarantee listing performance.
+            </span>
+          </div>
         </footer>
         <BottomNavigation />
       </body>
